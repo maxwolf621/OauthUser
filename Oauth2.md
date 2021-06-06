@@ -1,10 +1,23 @@
-[Annotation for bean](https://segmentfault.com/a/1190000021679236)
-[shortcome of the field based constructor](https://zhuanlan.zhihu.com/p/337498135)
-[EnableGlobalMethodSecurity](https://matthung0807.blogspot.com/2019/09/spring-security-enableglobalmethodsecur.html)
-[RolesAllowed and PreAuthorize](https://stackoverflow.com/questions/43961625/rolesallowed-vs-preauthorize-vs-secured)
-## Implemenetaions of websecurityconfigurerAdapter
-```java
+[Annotation for bean](https://segmentfault.com/a/1190000021679236)  
+[shortcome of the field based constructor](https://zhuanlan.zhihu.com/p/337498135)  
+[EnableGlobalMethodSecurity](https://matthung0807.blogspot.com/2019/09/spring-security-enableglobalmethodsecur.html)  
+[RolesAllowed and PreAuthorize](https://stackoverflow.com/questions/43961625/rolesallowed-vs-preauthorize-vs-secured)  
+[AutoWired and Bean](https://stackoverflow.com/questions/34172888/difference-between-bean-and-autowired)
+[EndPoint](https://docs.identityserver.io/en/latest/endpoints/userinfo.html)  
 
+# Build Up A Web Security For Spring Boot
+
+Normally We need these methods
+1. Custom UserDetailsService to let our provider fetch the user personal detail information
+   - For The Cutom Authentication we need to expose our AuthenticationManager as a bean with `@Bean(BeanIds.AUTHENTICATION_MANAGER)`
+2. Token Filter
+3. configure the Authentication Provider via An AuthenticationManager via `AuthenticationManagerBuilder`
+4. configure the each web page's security via `httpSecurity`
+
+## Web Security Configuration (build up user Authentication Implementation)
+- To customize User Authentication Implemenetaion of websecurityconfigurerAdapter
+
+```java
 @Condiguration     
 @EnableWebSecurity // Set Web Security On
 @EnableGlobalMethodSecurity(
@@ -16,15 +29,17 @@
 public class SecurityConfig extends WebSecurityConfigurerAdapter{
     
     // to get principal (user's details)
-    CustomUserDetailsService userDetailsService;
+    // @Autowired <-- inject a instance of CustomUserDetailsService
+    // Or using private final + @AllargsConstructor
+    private final CustomUserDetailsServic userDetailsService;
 
-    // Custom filte to be added in http.addbeforefilter(...)
+    // Custom filte to be injected(added) in http.addbeforefilter(...)
     @Bean
     public CustomFilter customFilter(){
       return new customFilter();
     }
 
-    // build a AuthenticationProvider via AuthenticationManager
+    // Build a AuthenticationProvider via AuthenticationManager
     //  we need to setup how this provider to fetch the userdetails/password
     @Override
     public void configure(AuthenticationManagerBuilder authbuilder){
@@ -48,22 +63,19 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter{
     // set up who can access the views(web pages)
     @Override
     public void configure(HttpSecurity http){
-      http.cors().and().csrf().disable()
-          /* we might have such 
-             
-             // it will activate for unqualified user
-             .exceptionHandling()
-             .authenticationEntryPoint(unauthorizedHandler)
-             
-             // cache (used for e.g. Remember Me)
-             .sessionManagement()
-             .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
-             
-             .antMachers(method.XXX,"index") // this index
-             .permitall()       // it allows everyone to access
-
-             .anyRequest() // client request
-             .authenticated() // requests needs authentication
+      http
+          .cors() // Allowing This Server access from different domain, httpProtocol...
+          .and()
+          .csrf().disable()
+          /* we might have these */ 
+          .exceptionHandling()                          //throw a 401 error for unqualified user
+            .authenticationEntryPoint(unauthorizedHandler)
+          .sessionManagement()                           // cache (used for e.g. Remember Me)
+            .sessionCreationPolicy(SessionCreationPolicy.STATELESS) 
+          .antMachers(method.GET/*or POST ..etc */ ,"/index" /* http_index */)
+            .permitall() // Allow this http index `/index` with request 'GET' method to be accessed by everyone
+          .anyRequest()        // any other client request
+            .authenticated()          // needs authentication
           */
       // A custom security filter
       http.addFilterBefore(method(), method.class)
@@ -71,11 +83,11 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter{
 }
 ```
 
-## With `@EnableGlobalMethodSecurity`
+## With @EnableGlobalMethodSecurity
 
 ### `securedEnabled`
+It protects the controller/service layer
 
-This protects the controller/service
 ```java
 // ADMIN can access getAllUsers
 @Secured("ROLE_ADMIN")
@@ -89,7 +101,7 @@ public User getUser(Long id) {}
 public boolean isUsernameAvailable() {}
 ```
 
-### jsr250Enabled same as `@secured()`
+### `jsr250Enabled` same as `@secured()`
 
 ```java
 /* Both are the same but with different Framework Standard */ 
@@ -105,8 +117,8 @@ public User getUser(Long id) {
 }
 ```
 
-### prePostEnabled
-It enables more complex expression based access control syntax with @PreAuthorize and @PostAuthorize annotations
+### `prePostEnabled`
+It enables more complex expression based access control syntax with `@PreAuthorize` and `@PostAuthorize` annotations
 ```java
 @PreAuthorize("isAnonymous()")
 public boolean isUsernameAvailable() {}
@@ -117,13 +129,22 @@ public Poll createPoll() {}
 
 
 ## Interface UserdetailsService
+This interface loads/fetchs the user details (password, name, email etc... from database) for the authentication. 
 
-To load/fetch the user details for the authentication we need the implementations of UserdetailsService
+In the implementation of this interface, We’ll also define a custom UserPrincipal class that implements `UserDetails` interface, and return  as the UserPrincipal object from overridden method `loadUserByUsername()` in implementation of UserDetailsService interface
 
+```java
+@AllargsConstructor
+public class CustomUserdetailsService implements UserdetailsService
+  
+  private final CustomUserDetail customUserDetail;
 
-In the implementation, We’ll also define a custom UserPrincipal class that will implement UserDetails interface, and return the UserPrincipal object from overridden method `loadUserByUsername()`.
-
-So we always need implementation of UserdetailsService interface to fetch the sensitive information of user (e.g. password, token … etc)
+  @Override
+  public String loadbyUsername(String username){
+    //...
+    return customUserDetail;
+  }
+```
 
 ## 401 error
 
@@ -165,15 +186,20 @@ public class JwtAuthenticationEntryPoint implements AuthenticationEntryPoint {
 
 ## Custom Filter
 
-A Custom Filter often is used to JWT check
+A Custom Filter (Most used to create token filter)
 
 Main design of JWT filter follows (normally) the following steps
-- reads JWT authentication token from the Authorization header of all the requests
-- validates the token
-- loads the user details associated with that token.
-- Sets the user details in Spring Security’s SecurityContext. Spring Security uses the user details to perform authorization checks. We can also access the user details stored in the SecurityContext in our controllers to perform our business logic.
+- Reads 
+  > JWT authentication token from the Authorization header of all the requests
+- Validating
+  > the token
+- Loads 
+  > the user details associated with that token.
+- Sets the user details in Spring Security’s SecurityContext. 
+  > Spring Security uses the user details to perform authorization checks.   
+  > We can also access the user details stored in the SecurityContext in our controllers to perform our business logic.  
 
-```java
+```jav
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     @Autowired
@@ -189,6 +215,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         try {
             String jwt = getJwtFromRequest(request);
 
+            //check if getJwtFromRequest return null 
             if (StringUtils.hasText(jwt) && tokenProvider.validateToken(jwt)) {
                 Long userId = tokenProvider.getUserIdFromJWT(jwt);
 
@@ -219,7 +246,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
 `AuthenticationManagerBuilder` is used to create an AuthenticationManager instance which is the main Spring Security interface for authenticating a user.
 
-- You can use AuthenticationManagerBuilder to build in-memory authentication, LDAP authentication, JDBC authentication, or add your custom authentication provider.
+
+> You can use AuthenticationManagerBuilder to build in-memory authentication, LDAP authentication, JDBC authentication, or add your custom authentication provider.
 
 In our example, we’ve provided our customUserDetailsService and a passwordEncoder to build the AuthenticationManager.
 
@@ -234,6 +262,7 @@ The APIs will throw exceptions if the request is not valid or some unexpected si
 To define Custom HttpStatus Exceptions we need annotations `@ResponseStatus`
 
 ```java
+/* For Http Status is internal server error */
 @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
 public class AppException extends RuntimeException {
     public AppException(String message) {
@@ -245,6 +274,7 @@ public class AppException extends RuntimeException {
     }
 }
 
+/* For Http Status Bad Request */
 @ResponseStatus(HttpStatus.BAD_REQUEST)
 public class BadRequestException extends RuntimeException {
 
@@ -257,6 +287,7 @@ public class BadRequestException extends RuntimeException {
     }
 }
 
+/* For Http Satus 404 not found */
 @ResponseStatus(HttpStatus.NOT_FOUND)
 public class ResourceNotFoundException extends RuntimeException {
     private String resourceName;
@@ -272,8 +303,25 @@ public class ResourceNotFoundException extends RuntimeException {
 
 ```
 
+# Third Part Login via Google, Facebook, Github … etc
 
-## User model for OAuth2
+The flow is kidda same as the above , but with a little difference
+1. User model should 
+  > With `enum provider` member to let user choose login/signup by third part application or local application
+2. Define A repository that implements AuthorizationRequestRepository ( Get Data from 3th part database )
+  > To help third pasrt fetch the user details in database
+3. Define A Service that implements DefaultOAuth2UserService
+4. Create Abstract class Auth2UserInfo(storing the retrieving userdetails from database)
+   > So we might have Auth2UserInfo for facebook, google, github ...
+5. Create OAuth2UserInfoFactory Class (optional)
+6. Create An Inheritance extending OAuth2AuthenticationSuccessHandler for success authentication (signup/login)
+7. Create An Inheritance extending OAuth2AuthenticationFailureHandler for failure authentication 
+8. Create Custom User Principal implementing `OAuth2User`, `UserDetails`
+9. Create Meta annotation for get `CurrentUser` from Spring Web Security
+10. CREATE DTOs for (login(token) response, login request, sign request, )
+11. Exception Class(HttpStatus NOT_FOUND, BAD_REQUEST etc ...)
+
+## User model for OAuth2 (Login Via Third Part)
 
 ```java
 package com.example.springsocial.model;
@@ -307,8 +355,8 @@ public class User {
     @JsonIgnore
     private String password;
 
-    // this is important
-    //  to check you are logging in with google, local, facebook … etc
+    /* Here is added a third part authorization */
+    //  To check you are logging in with google, local, facebook … etc
     @NotNull
     @Enumerated(EnumType.STRING)
     private AuthProvider provider;
@@ -320,9 +368,7 @@ public class User {
 ```
 
 ```java
-package com.example.springsocial.model;
-
-public enum  AuthProvider {
+public enum AuthProvider {
     local,
     facebook,
     google,
@@ -330,8 +376,11 @@ public enum  AuthProvider {
 }
 ```
 
-## Security Config for OAuth2Authentication
- 
+## Web Security Config for OAuth2Authentication
+
+
+Configure httpSecurity with `.oauth2login()`
+
 ```java
 @Configuration
 @EnableWebSecurity
@@ -383,9 +432,7 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
     }
 
 
-
     // Configure our http-security (web pages)
-
     @Override
     protected void configure(HttpSecurity http) throws Exception {
         http
@@ -404,16 +451,7 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
                     .authenticationEntryPoint(new RestAuthenticationEntryPoint())
                     .and()
                 .authorizeRequests()
-                    .antMatchers("/",
-                        "/error",
-                        "/favicon.ico",
-                        "/**/*.png",
-                        "/**/*.gif",
-                        "/**/*.svg",
-                        "/**/*.jpg",
-                        "/**/*.html",
-                        "/**/*.css",
-                        "/**/*.js")
+                    .antMatchers("/")
                         .permitAll()
                     // Anyone can acces loging in in via local
                     //  or loging in by facebook, google …
@@ -423,11 +461,11 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
                         .authenticated()
                     .and()
                 .oauth2Login()
-                    .authorizationEndpoint()
+                    .authorizationEndpoint() // retrieve the user's details from third part's database
                         .baseUri("/oauth2/authorize")
                         .authorizationRequestRepository(cookieAuthorizationRequestRepository())
                         .and()
-                    .redirectionEndpoint()
+                    .redirectionEndpoint() //return the user's details from thrid part
                         .baseUri("/oauth2/callback/*")
                         .and()
                     .userInfoEndpoint()
@@ -437,6 +475,7 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
                     .failureHandler(oAuth2AuthenticationFailureHandler);
 
         // Add our custom Token based authentication filter
+        // addFilterBefore(method , class)
         http.addFilterBefore(tokenAuthenticationFilter(), UsernamePasswordAuthenticationFilter.class);
     }
 ```
