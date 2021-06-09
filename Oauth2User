@@ -68,18 +68,28 @@
 ```
 [Ref](https://datatracker.ietf.org/doc/html/rfc6749#section-3)
 
-(A). The client initiates the flow by directing the resource owner's user-agent to the authorization endpoint.  
-     The client includes its client identifier, requested scope, local state, and a redirection URI to which the authorization server will send the user-agent back once access is granted (or denied).  
-(B)  The authorization server authenticates the resource owner (via the user-agent) and establishes whether the resource owner grants or denies the client's access request.  
 
-(C)  Assuming the resource owner grants access, the authorization server redirects the user-agent back to the client using the `redirection URI` provided earlier (in the request or during client registration).  
-     - The redirection URI includes an authorization code and any local state provided by the client earlier.
 
-(D). The client requests an access token from the authorization server's token endpoint by including the authorization code received in the previous step.  
-     When making the request, the client authenticates with the authorization server.  
-     The client includes the redirection URI used to obtain the authorization code for verification.  
-(E). The authorization server authenticates the client, validates the authorization code, and ensures that the redirection URI received matches the URI used to redirect the client in step (C).   
-     If valid, the authorization server responds back with an access token and, optionally, a refresh token.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 An authorization grant is a credential representing the resource owner's authorization (to access its protected resources) used by the client to obtain an access token.  
@@ -89,7 +99,9 @@ This specification defines four grant types
 3. resource owner password credentials
 4. client credentials 
 
-[ref](https://blog.yorkxin.org/posts/oauth2-4-1-auth-code-grant-flow.html)
+
+[](https://blog.yorkxin.org/posts/oauth2-4-1-auth-code-grant-flow.html)
+
 
 (A). Client sends request to Resource Owner via User Agent  
 Request includes
@@ -104,8 +116,7 @@ accounts.google.com/o/oauth2/v2/auth?response_type=code&client_id=150677252870-7
 ```
 
 
-(C). If Resource Owner is **granted** to access ， Authorization Server redirect the User-Agent baack to Redirection URI (that client provided)
-The URI includes
+(C). If Resource Owner is **granted** ， Authorization Server 會把 User-Agent 轉回去先前指定的 Redirection URI ，其中包含了：
 - Authorization Code
 - 許可的 scopes （如果跟申請的不一樣才會附上）
 - 先前提供的內部 state （原封不動，如果先前有提供才會附上）
@@ -574,7 +585,7 @@ protected void configure(HttpSecurity http) throws Exception {
     }
 ```
 
-# Customizing userInfoEndpoint()
+# Custmomizing userInfoEndpoint()
 
 Our custom user info endpoint will make request to the provider user info endpoint and retrieve the user info such as name, email, image etc.
 
@@ -600,9 +611,8 @@ The UserInfo Endpoint includes a number of configuration options,
 ```
 
 
-### configure a custom `.userAuthoritiesMapper(this.userAuthoritiesMapper)`
+`.userAuthoritiesMapper(this.userAuthoritiesMapper)`
 After the user successfully authenticates with the OAuth 2.0 Provider, the OAuth2User.getAuthorities() (or OidcUser.getAuthorities()) may be mapped to a new set of GrantedAuthority instances, which will be supplied to OAuth2AuthenticationToken when completing the authentication.
-
 ```java
 	private GrantedAuthoritiesMapper userAuthoritiesMapper() {
 		return (authorities) -> {
@@ -634,7 +644,8 @@ After the user successfully authenticates with the OAuth 2.0 Provider, the OAuth
 	} 
 ```
 
-### Configure a custom`.userService(this.oauth2UserService())` or `.oidcUserService(this.oidcUserService())`
+`.userService(this.oauth2UserService())` or `.oidcUserService(this.oidcUserService())`
+
 
 The OAuth2UserRequest (and OidcUserRequest) provides you access to the associated OAuth2AccessToken, which is very useful in the cases where the delegator needs to fetch authority information from a protected resource before it can map the custom authorities for the user.
 
@@ -662,94 +673,6 @@ The OAuth2UserRequest (and OidcUserRequest) provides you access to the associate
 	}
 ```
 
-### Configure a `..customUserType(GitHubOAuth2User.class, "github")`
-
-If the default implementation (DefaultOAuth2User) does not suit your needs, you can define your own implementation of OAuth2User.
-
-for example creating a custom Oauth2User user Model for github
-
-```java
-@Override
-protected void configure(HttpSecurity http) throws Exception {
-	http
-		.oauth2Login()
-			.userInfoEndpoint()
-				.customUserType(GitHubOAuth2User.class, "github")
-				...
-}
-```
-
-```java
-public class GitHubOAuth2User implements OAuth2User {
-
-  /* We often override getAuthorities() and getAttributes()*/
-	private List<GrantedAuthority> authorities = AuthorityUtils.createAuthorityList("ROLE_USER");
-	
-  private Map<String, Object> attributes;
-	private String id;
-	private String name;
-	private String login;
-	private String email;
-
-	@Override
-	public Collection<? extends GrantedAuthority> getAuthorities() {
-		return this.authorities;
-	}
-
-	@Override
-	public Map<String, Object> getAttributes() {
-		if (this.attributes == null) {
-			this.attributes = new HashMap<>();
-			this.attributes.put("id", this.getId());
-			this.attributes.put("name", this.getName());
-			this.attributes.put("login", this.getLogin());
-			this.attributes.put("email", this.getEmail());
-		}
-		return attributes;
-	}
-  // getter and setter
-}
-```
-
-### Configure a custom `.userService(this.oauth2Service())`
-
-A `DefaultOAuth2UserService` is an implementation of an `OAuth2UserService` that supports standard OAuth 2.0 Provider’s.
-> OAuth2UserService obtains the user attributes of the end-user (the resource owner) from the UserInfo Endpoint (by using the access token granted to the client during the authorization flow) and returns an AuthenticatedPrincipal in the form of an OAuth2User.
-
-
-```java
-//...
-	@Override
-	protected void configure(HttpSecurity http) throws Exception {
-		http
-			.oauth2Login()
-				.userInfoEndpoint()
-					.userService(this.oauth2UserService())
-					...
-	}
-
-	private OAuth2UserService<OAuth2UserRequest, OAuth2User> oauth2UserService() {
-		return new CustomOAuth2UserService();
-  }
-```
-
-
-```java
-@Service
-public class CustomOAuth2UserService extends DefaultOAuth2UserService{
-
-  @Autowired
-  private UserRepository userRepository;
-  //..
-
-  @Override
-  public OAuth2User loadUser(OAuth2UserRequest oAuth2UserRequest) throws OAuth2AuthenticationException {
-    //..
-
-  
-  }
-}
-```
 
 # Customizing Token Endpoint
 

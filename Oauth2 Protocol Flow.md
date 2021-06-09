@@ -76,7 +76,6 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter{
             .permitall() // Allow this http index `/index` with request 'GET' method to be accessed by everyone
           .anyRequest()        // any other client request
             .authenticated()          // needs authentication
-          */
       // A custom security filter
       http.addFilterBefore(method(), method.class)
     }
@@ -86,8 +85,7 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter{
 ## With @EnableGlobalMethodSecurity
 
 ### `securedEnabled`
-It protects the controller/service layer
-
+It protects the `controller/service` layer with Authorities
 ```java
 // ADMIN can access getAllUsers
 @Secured("ROLE_ADMIN")
@@ -453,19 +451,17 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
                 .authorizeRequests()
                     .antMatchers("/")
                         .permitAll()
-                    // Anyone can acces loging in in via local
-                    //  or loging in by facebook, google …
                     .antMatchers("/auth/**", "/oauth2/**")
                         .permitAll()
                     .anyRequest()
                         .authenticated()
                     .and()
                 .oauth2Login()
-                    .authorizationEndpoint() // retrieve the user's details from third part's database
+                    .authorizationEndpoint()    
                         .baseUri("/oauth2/authorize")
                         .authorizationRequestRepository(cookieAuthorizationRequestRepository())
                         .and()
-                    .redirectionEndpoint() //return the user's details from thrid part
+                    .redirectionEndpoint()            //return the user's details from thrid part
                         .baseUri("/oauth2/callback/*")
                         .and()
                     .userInfoEndpoint()
@@ -485,8 +481,7 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
 The OAuth2 login flow will be initiated by the frontend client by sending the user to the endpoint 
 > `http://localhost:8080/oauth2/authorize/{provider}?redirect_uri=<redirect_uri_after_login>`
 
-- The `{provider}` is  path parameter one of google, facebook, or github. 
-
+- The `{provider}` is path parameter one of `google`, `facebook`, or `github`. 
 - The `{redirect_uri}` is the URI to which the user will be redirected once the authentication with the OAuth2 provider is successful. 
 - This is different from the OAuth2 redirectUri.
 
