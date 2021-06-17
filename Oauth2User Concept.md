@@ -1,5 +1,7 @@
 [More Details](https://datatracker.ietf.org/doc/html/rfc6749#section-1.1)
 [Good Explanation](http://www.ruanyifeng.com/blog/2019/04/oauth-grant-types.html)
+[Google API loging SetUp](https://xenby.com/b/245-%E6%95%99%E5%AD%B8-google-oauth-2-0-%E7%94%B3%E8%AB%8B%E8%88%87%E4%BD%BF%E7%94%A8%E6%8C%87%E5%8D%97)
+[The OAuth 2.0 Authorization Framework](https://datatracker.ietf.org/doc/html/rfc6749)
 # Protocol Flow 
 
 ``````
