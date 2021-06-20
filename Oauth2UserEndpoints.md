@@ -63,7 +63,11 @@ public class OAuth2ClientSecurityConfig extends WebSecurityConfigurerAdapter {
                 .clientRegistrationRepository(this.clientRegistrationRepository())
                 .authorizedClientRepository(this.authorizedClientRepository())
                 .authorizedClientService(this.authorizedClientService())
-                .authorizationCodeGrant()
+                .authorizationCodeGrant()用户登入授权后，github调用我们应用的回调地址（我们刚刚注册github应用时填写的回调地址） 第三步的回调地址中github会将code参数放到url中，
+
+接下来我们的客户端就会在内部拿这个code再次去调用github的access_token地址获取令牌
+
+OAuth2AuthorizationRequestRedirectFilter handles for
                     .authorizationRequestRepository(this.authorizationRequestRepository())
                     .authorizationRequestResolver(this.authorizationRequestResolver())
                     .accessTokenResponseClient(this.accessTokenResponseClient());
@@ -257,18 +261,9 @@ public OAuth2AuthorizedClientManager authorizedClientManager(
 
 # Oauth2 User Filter
 
-## OAuth2AuthorizationRequestRedirectFilter 
-[Oauth2 Filter Code](https://www.gushiciku.cn/pl/pnSK/zh-/tw)  
-
-
-
-
-用户登入授权后，github调用我们应用的回调地址（我们刚刚注册github应用时填写的回调地址）
-第三步的回调地址中github会将code参数放到url中，
-
-接下来我们的客户端就会在内部拿这个code再次去调用github的access_token地址获取令牌
-
-
+There are two important filters
+1. Oauth2AuthorizationRequestRedirectFilter (If the grant is valid then we goes the next filter `OAuth2LoginAuthenticationFilter`)
+2. Oauth2LoginAuthenticationFilter
 
 OAuth2AuthorizationRequestRedirectFilter handles for 
 1. The user clicks *login via third party button* in the cient/application to redirect the user to third parhat the client request provided ty login page 
@@ -280,10 +275,14 @@ OAuth2AuthorizationRequestRedirectFilter handles for
 OAuth2LoginAuthenticationFilter handles for
 1. The filter will compare the data after the user press the login button in the third party page
 2. (if the user is granted) filter will add `granted code` in the `redirect_url` 
-3. parse the redirect_url' `granted code` and `state` with the ones stored in the http session if it is valid then it returns access_token url 
+3. parse the redirect_url' `granted code` and `state` with the ones stored in the http session if it is valid then it returns access_token url (so client can use this acces token to access third party resource)
 
-当用户在github的授权页面授权之后github调用回调地址，OAuth2LoginAuthenticationFilter匹配这个回调地址，解析回调地址后的code与state参数进行验证之后内部拿着这个code远程调用github的access_token地址，拿到access_token之后通过OAuth2UserService获取相应的用户信息（内部是拿access_token远程调用github的用户信息端点）最后将用户信息构造成Authentication被SecurityContextPersistenceFilter过滤器保存到HttpSession中。
+> Oauth2LoginAuthenticationFilter check the grant code and state if they are valid then it return access_token
+> client use access token and Iauth2UserService to get third party user details (protected resource ) and then return instance of Authenttication 
+> After that SecurityContextPersistenceFilter will store protected resource store local http session  (local endpoint)
 
+## OAuth2AuthorizationRequestRedirectFilter 
+[Oauth2 Filter Code](https://www.gushiciku.cn/pl/pnSK/zh-/tw)  
 
 The `OAuth2AuthorizationRequestRedirectFilter` uses 
 1. an `OAuth2AuthorizationRequestResolver` to resolve an `OAuth2AuthorizationRequest` 
@@ -309,6 +308,7 @@ public class OAuth2AuthorizationRequestRedirectFilter extends OncePerRequestFilt
     //...
 }
 ```
+If the grant is valid then we goes the next filter `OAuth2LoginAuthenticationFilter`  
 
 ### Resolver
 
@@ -449,8 +449,187 @@ public void sendRedirect(HttpServletRequest request, HttpServletResponse respons
 }
 ```
 
-If the grant is valid then we goes the next filter `OAuth2LoginAuthenticationFilter`  
-it checks the token that client gives via `OAuth2LoginAuthenticationProvider` then get protected resouce if token is authenticated.
+
+## OAuth2LoginAuthenticationFilter
+
+This filter
+1. Process an Oauth 2.0 Authorization Response (by checking authorization code grant) 
+2. Pass A Valid Access Token to `AuthenticationManager` to access the authenticated End-User details
+3. Store the Authenticated User details from third party to local proected resource (session .. etc)
+
+```java
+/**
+ * An implementation of an {@link AbstractAuthenticationProcessingFilter} for OAuth 2.0
+ * Login.
+ * This authentication {@code Filter} handles the processing of an OAuth 2.0 Authorization
+ * Response for the authorization code grant flow and delegates an
+ * {@link OAuth2LoginAuthenticationToken} to the {@link AuthenticationManager} to log in
+ * the End-User.
+ *
+ /**********************Checking The Grant Code and State from Clinet***************************
+ *The OAuth 2.0 Authorization Response is processed as follows:
+ *     Assuming the End-User (Resource Owner) has granted access to the Client, 
+ *    	the Authorization Server will append the {@link OAuth2ParameterNames#CODE code} and
+ * 	{@link OAuth2ParameterNames#STATE state} parameters to the
+ * 	{@link OAuth2ParameterNames#REDIRECT_URI redirect_uri} (provided in the Authorization Request) 
+ *	and redirect the End-User's user-agent back to this {@code Filter} (the Client)
+ *
+ /***********************Generate the Token to client**************************************
+ * This {@code Filter} will then create an {@link OAuth2LoginAuthenticationToken} with
+ * 	the {@link OAuth2ParameterNames#CODE code} received 
+ * 	and delegate it to the {@link AuthenticationManager} to authenticate.
+ *
+ /***********************For A Authenticated User who existing in third party protected resource*****
+ * Upon a successful authentication, an {@link OAuth2AuthenticationToken} is created
+ * 	(representing the End-User {@code Principal}) and associated to the
+ * 	{@link OAuth2AuthorizedClient Authorized Client} using the
+ * 	{@link OAuth2AuthorizedClientRepository}.
+ *
+ /***********************Save the this valid user principal into the local protected resource********
+ * Finally, the {@link OAuth2AuthenticationToken} is returned and ultimately stored in
+ * 	the {@link SecurityContextRepository} to complete the authentication processing.
+ */
+public class OAuth2LoginAuthenticationFilter extends AbstractAuthenticationProcessingFilter {
+
+	// Default_url, assert_attributes ...
+	
+	private ClientRegistrationRepository clientRegistrationRepository;
+
+	private OAuth2AuthorizedClientRepository authorizedClientRepository;
+
+	private AuthorizationRequestRepository<OAuth2AuthorizationRequest> authorizationRequestRepository = new HttpSessionOAuth2AuthorizationRequestRepository();
+
+        // ....
+	
+        @Override
+	public Authentication attemptAuthentication(HttpServletRequest request, HttpServletResponse response)
+			throws AuthenticationException {
+			
+		MultiValueMap<String, String> params = OAuth2AuthorizationResponseUtils.toMultiMap(request.getParameterMap());
+		if (!OAuth2AuthorizationResponseUtils.isAuthorizationResponse(params)) {
+			OAuth2Error oauth2Error = new OAuth2Error(OAuth2ErrorCodes.INVALID_REQUEST);
+			throw new OAuth2AuthenticationException(oauth2Error, oauth2Error.toString());
+		}
+		
+		// 
+		OAuth2AuthorizationRequest authorizationRequest = this.authorizationRequestRepository
+				.removeAuthorizationRequest(request, response);
+		if (authorizationRequest == null) {
+			OAuth2Error oauth2Error = new OAuth2Error(AUTHORIZATION_REQUEST_NOT_FOUND_ERROR_CODE);
+			throw new OAuth2AuthenticationException(oauth2Error, oauth2Error.toString());
+		}
+		
+		// Find the client via authroizartionRequest
+		String registrationId = authorizationRequest.getAttribute(OAuth2ParameterNames.REGISTRATION_ID);
+		ClientRegistration clientRegistration = this.clientRegistrationRepository.findByRegistrationId(registrationId);
+		if (clientRegistration == null) {
+			OAuth2Error oauth2Error = new OAuth2Error(CLIENT_REGISTRATION_NOT_FOUND_ERROR_CODE,
+					"Client Registration not found with Id: " + registrationId, null);
+			throw new OAuth2AuthenticationException(oauth2Error, oauth2Error.toString());
+		}
+		
+		/**
+		 *  Build an Access Token url
+		*/
+		// @formatter:off
+		String redirectUri = UriComponentsBuilder.fromHttpUrl(UrlUtils.buildFullRequestUrl(request))
+				.replaceQuery(null)
+				.build()
+				.toUriString();
+				
+		// @formatter:on
+		OAuth2AuthorizationResponse authorizationResponse = OAuth2AuthorizationResponseUtils.convert(params,
+				redirectUri);
+		Object authenticationDetails = this.authenticationDetailsSource.buildDetails(request);
+		
+		// generate access token authenticationRequest
+		OAuth2LoginAuthenticationToken authenticationRequest = new OAuth2LoginAuthenticationToken(clientRegistration,
+				new OAuth2AuthorizationExchange(authorizationRequest, authorizationResponse));
+		authenticationRequest.setDetails(authenticationDetails);
+		
+		// Make authenticationRequest authenticationRequest
+		OAuth2LoginAuthenticationToken authenticationResult = (OAuth2LoginAuthenticationToken) this
+				.getAuthenticationManager().authenticate(authenticationRequest);
+				
+		// 
+		OAuth2AuthenticationToken oauth2Authentication = new OAuth2AuthenticationToken(
+				authenticationResult.getPrincipal(), authenticationResult.getAuthorities(),
+				authenticationResult.getClientRegistration().getRegistrationId());
+		oauth2Authentication.setDetails(authenticationDetails);
+		
+		// create a new Oauth2authroizedCient and save it  
+		OAuth2AuthorizedClient authorizedClient = new OAuth2AuthorizedClient(
+				authenticationResult.getClientRegistration(), oauth2Authentication.getName(),
+				authenticationResult.getAccessToken(), authenticationResult.getRefreshToken());
+		this.authorizedClientRepository.saveAuthorizedClient(authorizedClient, oauth2Authentication, request, response);
+		
+		return oauth2Authentication;
+	}
+}
+```
+
+```java
+public class OAuth2LoginAuthenticationProvider implements AuthenticationProvider {
+    
+    //...
+    
+    @Override
+  public Authentication authenticate(Authentication authentication) throws AuthenticationException {
+    OAuth2LoginAuthenticationToken authorizationCodeAuthentication =
+      (OAuth2LoginAuthenticationToken) authentication;
+
+   
+    if (authorizationCodeAuthentication.getAuthorizationExchange()
+      .getAuthorizationRequest().getScopes().contains("openid")) {
+      
+      
+      return null;
+    }
+
+    OAuth2AccessTokenResponse accessTokenResponse;
+    try {
+      OAuth2AuthorizationExchangeValidator.validate(
+          authorizationCodeAuthentication.getAuthorizationExchange());
+      
+      accessTokenResponse = this.accessTokenResponseClient.getTokenResponse(
+          new OAuth2AuthorizationCodeGrantRequest(
+              authorizationCodeAuthentication.getClientRegistration(),
+              authorizationCodeAuthentication.getAuthorizationExchange()));
+
+    } catch (OAuth2AuthorizationException ex) {
+      OAuth2Error oauth2Error = ex.getError();
+      throw new OAuth2AuthenticationException(oauth2Error, oauth2Error.toString());
+    }
+    
+         
+    OAuth2AccessToken accessToken = accessTokenResponse.getAccessToken();
+    Map<String, Object> additionalParameters = accessTokenResponse.getAdditionalParameters();
+    
+         
+    OAuth2User oauth2User = this.userService.loadUser(new OAuth2UserRequest(
+        authorizationCodeAuthentication.getClientRegistration(), accessToken, additionalParameters));
+
+    Collection<? extends GrantedAuthority> mappedAuthorities =
+      this.authoritiesMapper.mapAuthorities(oauth2User.getAuthorities());
+    
+         
+    OAuth2LoginAuthenticationToken authenticationResult = new OAuth2LoginAuthenticationToken(
+      authorizationCodeAuthentication.getClientRegistration(),
+      authorizationCodeAuthentication.getAuthorizationExchange(),
+      oauth2User,
+      mappedAuthorities,
+      accessToken,
+      accessTokenResponse.getRefreshToken());
+    authenticationResult.setDetails(authorizationCodeAuthentication.getDetails());
+
+    return authenticationResult;
+  }
+    ...省略部分代码
+}
+
+```
+OAuth2LoginAuthenticationProvider的执行逻辑很简单，首先通过code获取access_token，然后通过access_token获取用户信息，这和标准的oauth2授权码模式一致。
+
 
 ### Conclusion
 
