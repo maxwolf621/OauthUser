@@ -77,6 +77,7 @@ OAuth2AuthorizationRequestRedirectFilter handles for
 ## Client Registration
 We can configure client registration via java configuration or application.properties 
 
+
 A client registration holds these information
 ```
 client id
@@ -480,7 +481,7 @@ This filter
  * 	and delegate it to the {@link AuthenticationManager} to authenticate.
  *
  /***********************For A Authenticated User who existing in third party protected resource*****
- * Upon a successful authentication, an {@link OAuth2AuthenticationToken} is created
+ * Upon a successful authentication, an OAuth2AuthenticationToken is created
  * 	(representing the End-User {@code Principal}) and associated to the
  * 	{@link OAuth2AuthorizedClient Authorized Client} using the
  * 	{@link OAuth2AuthorizedClientRepository}.
@@ -501,6 +502,7 @@ public class OAuth2LoginAuthenticationFilter extends AbstractAuthenticationProce
 
         // ....
 	
+	// Process of Authentication 
         @Override
 	public Authentication attemptAuthentication(HttpServletRequest request, HttpServletResponse response)
 			throws AuthenticationException {
@@ -511,7 +513,8 @@ public class OAuth2LoginAuthenticationFilter extends AbstractAuthenticationProce
 			throw new OAuth2AuthenticationException(oauth2Error, oauth2Error.toString());
 		}
 		
-		// 
+		// Removes and returns the OAuth2AuthorizationRequest associated 
+		// to the provided HttpServletRequest and HttpServletResponse or if not available returns null.
 		OAuth2AuthorizationRequest authorizationRequest = this.authorizationRequestRepository
 				.removeAuthorizationRequest(request, response);
 		if (authorizationRequest == null) {
@@ -519,7 +522,8 @@ public class OAuth2LoginAuthenticationFilter extends AbstractAuthenticationProce
 			throw new OAuth2AuthenticationException(oauth2Error, oauth2Error.toString());
 		}
 		
-		// Find the client via authroizartionRequest
+		// Find the client from Authentication Server via authroizartionRequest and clientRegistrationRepository
+		//  if there is no such client then throw Oauth2AuthenticationExption
 		String registrationId = authorizationRequest.getAttribute(OAuth2ParameterNames.REGISTRATION_ID);
 		ClientRegistration clientRegistration = this.clientRegistrationRepository.findByRegistrationId(registrationId);
 		if (clientRegistration == null) {
@@ -530,7 +534,7 @@ public class OAuth2LoginAuthenticationFilter extends AbstractAuthenticationProce
 		
 		/**
 		 *  Build an Access Token url
-		*/
+		 */
 		// @formatter:off
 		String redirectUri = UriComponentsBuilder.fromHttpUrl(UrlUtils.buildFullRequestUrl(request))
 				.replaceQuery(null)
@@ -538,26 +542,23 @@ public class OAuth2LoginAuthenticationFilter extends AbstractAuthenticationProce
 				.toUriString();
 				
 		// @formatter:on
-		OAuth2AuthorizationResponse authorizationResponse = OAuth2AuthorizationResponseUtils.convert(params,
-				redirectUri);
+		OAuth2AuthorizationResponse authorizationResponse = OAuth2AuthorizationResponseUtils.convert(params,redirectUri);
 		Object authenticationDetails = this.authenticationDetailsSource.buildDetails(request);
 		
-		// generate access token authenticationRequest
+		// 建立含有token的Authentication Request
 		OAuth2LoginAuthenticationToken authenticationRequest = new OAuth2LoginAuthenticationToken(clientRegistration,
 				new OAuth2AuthorizationExchange(authorizationRequest, authorizationResponse));
 		authenticationRequest.setDetails(authenticationDetails);
-		
-		// Make authenticationRequest authenticationRequest
+		setDetails
+		// 驗證透過AuthenticationManager
 		OAuth2LoginAuthenticationToken authenticationResult = (OAuth2LoginAuthenticationToken) this
 				.getAuthenticationManager().authenticate(authenticationRequest);
-				
-		// 
+		// 建立代表該End-User的Token
 		OAuth2AuthenticationToken oauth2Authentication = new OAuth2AuthenticationToken(
 				authenticationResult.getPrincipal(), authenticationResult.getAuthorities(),
 				authenticationResult.getClientRegistration().getRegistrationId());
 		oauth2Authentication.setDetails(authenticationDetails);
-		
-		// create a new Oauth2authroizedCient and save it  
+		// 把Toke存入Authorization Server對應的Client中
 		OAuth2AuthorizedClient authorizedClient = new OAuth2AuthorizedClient(
 				authenticationResult.getClientRegistration(), oauth2Authentication.getName(),
 				authenticationResult.getAccessToken(), authenticationResult.getRefreshToken());
@@ -566,6 +567,72 @@ public class OAuth2LoginAuthenticationFilter extends AbstractAuthenticationProce
 		return oauth2Authentication;
 	}
 }
+
+// remove
+@Override
+public OAuth2AuthorizationRequest removeAuthorizationRequest(HttpServletRequest request) {
+	Assert.notNull(request, "request cannot be null");
+	
+	// getState from the request
+	String stateParameter = this.getStateParameter(request);
+	if (stateParameter == null) {
+		return null;
+	}
+	
+	// Map<"state", state_code> 
+	Map<String, OAuth2AuthorizationRequest> authorizationRequests = this.getAuthorizationRequests(request);
+	
+	// compare with `state`
+	OAuth2AuthorizationRequest originalRequest = authorizationRequests.remove(stateParameter);
+	
+	if (authorizationRequests.size() == 0) {
+	// remove state in this the session
+		request.getSession().removeAttribute(this.sessionAttributeName);
+	}
+	else if (authorizationRequests.size() == 1) {
+	// add state
+		request.getSession().setAttribute(this.sessionAttributeName,
+				authorizationRequests.values().iterator().next());
+	}
+	else {
+	// add state
+		request.getSession().setAttribute(this.sessionAttributeName, authorizationRequests);
+	}
+	return originalRequest;
+}
+
+/* get map<"state" , OAuth2AuthorizationRequest state_code> from OAuth2AuthorizationRequest or Map from session and return it*/
+private Map<String, OAuth2AuthorizationRequest> getAuthorizationRequests(HttpServletRequest request) {
+
+		// returns a session only if there is one associated with the request (if not then dont create new session automatically)
+		HttpSession session = request.getSession(false);
+		
+		// get session attribute's value coulde be an instance of OAuth2AuthorizationRequest or Map 
+		Object sessionAttributeValue = (session != null) ? session.getAttribute(this.sessionAttributeName) : null;
+		if (sessionAttributeValue == null) {
+			return new HashMap<>();
+		}
+		
+		else if (sessionAttributeValue instanceof OAuth2AuthorizationRequest) {
+		// get Oauth2AuthorizationRerquest's attribute `state`
+			OAuth2AuthorizationRequest auth2AuthorizationRequest = (OAuth2AuthorizationRequest) sessionAttributeValue;
+			
+			Map<String, OAuth2AuthorizationRequest> authorizationRequests = new HashMap<>(1);
+			// For comparing with `state`
+			authorizationRequests.put(auth2AuthorizationRequest.getState(), auth2AuthorizationRequest);
+			return authorizationRequests;
+		}
+		else if (sessionAttributeValue instanceof Map) {
+			@SuppressWarnings("unchecked")
+			Map<String, OAuth2AuthorizationRequest> authorizationRequests = (Map<String, OAuth2AuthorizationRequest>) sessionAttributeValue;
+			return authorizationRequests;
+		}
+		else {
+			throw new IllegalStateException(
+					"authorizationRequests is supposed to be a Map or OAuth2AuthorizationRequest but actually is a "
+							+ sessionAttributeValue.getClass());
+		}
+	}
 ```
 
 ```java
