@@ -5,9 +5,50 @@
 [Attributes of Different Third Parties](https://blog.yorkxin.org/posts/oauth2-implementation-differences-among-famous-sites.html)
 
 
+# Oauth2 User Login Flow
+[](https://medium.com/swlh/spring-boot-oauth2-login-with-github-88b178e0c004)
 
 
-## Endpoints
+Oauth2 Client Setup in Maven
+```
+<dependency>
+  <groupId>org.springframework.boot</groupId>
+  <artifactId>spring-boot-starter-oauth2-client</artifactId>
+</dependency>
+```
+
+Add client registration details in application.properties
+```
+spring.security.oauth2.client.registration.github.client-id= ...
+spring.security.oauth2.client.registration.github.client-secret= ...
+spring.security.oauth2.client.registration.github.redirect-uri= ...
+```
+
+Configure spring boot web security
+[plus configure authorization](https://stackoverflow.com/questions/36233910/custom-http-security-configuration-along-with-oauth2-resource-server)
+```java
+@EnableWebSecurity
+public class SecurityConfig extends WebSecurityConfigurerAdapter{
+    
+    @Override
+    public void configure(HttpSecurity http) throws Exception{
+        http.authorizeRequests()
+                .anyRequest()
+                .authenticated()
+                .and()
+                .oauth2Login();
+    }
+}
+```
+
+
+Run `mvn spring boot:run`
+Now by accessing default host `localhost:8080` it will direct to the Authorized Endpoint (login page of the thrid party application) 
+
+
+
+
+# Endpoints
 ![image](https://user-images.githubusercontent.com/68631186/122627719-db47c700-d0e3-11eb-9c9b-9c8f3743c623.png)
 [Protocol Endpoints](https://datatracker.ietf.org/doc/html/rfc6749#section-3)  
 - Authorization Endpoint(used by client)作為Authorization Server發行Authorization Grant (intercept Authorization Filter)
