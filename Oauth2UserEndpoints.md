@@ -49,7 +49,7 @@ Internally, this , which uses implements doFilterInternal that matches against t
 ```
 https://github.com/login/oauth/authorize?response_type=code&client_id=<clientId>&scope=read:user&state=<state>&redirect_uri=http://localhost:8080/login/oauth2/code/github
 ```
-the above `redirect_uri` contains the same value we put when we registered our `application.properties`.  
+- the above `redirect_uri` contains the same value we put when we registered our `application.properties`.  
 
 After we successfully authenticate against GitHub, the user will be redirected to (default) `login/oauth2/code/github` with the authentication code in the request parameters. This will be handled by the `OAuth2LoginAuthenticationFilter`, which will perform a POST request to the GitHub API to get an authentication token.
 
