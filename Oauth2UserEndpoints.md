@@ -49,9 +49,10 @@ Internally, this , which uses implements doFilterInternal that matches against t
 ```
 https://github.com/login/oauth/authorize?response_type=code&client_id=<clientId>&scope=read:user&state=<state>&redirect_uri=http://localhost:8080/login/oauth2/code/github
 ```
-- the above `redirect_uri` contains the same value we put when we registered our `application.properties`.  
+- the above (rediretion endpoint) `redirect_uri` contains the same value we put when we registered our `application.properties`.  
 
-After we successfully authenticate against GitHub, the user will be redirected to (default) `login/oauth2/code/github` with the authentication code in the request parameters. This will be handled by the `OAuth2LoginAuthenticationFilter`, which will perform a POST request to the GitHub API to get an authentication token.
+After we successfully authenticate against GitHub, the user will be redirected to (default) `http://localhost:8080/login/oauth2/code/github` with the authentication code in the request parameters.  
+This will be handled by the `OAuth2LoginAuthenticationFilter`, which will perform a POST request to the GitHub API to get an authentication token.
 
 
 
@@ -60,24 +61,24 @@ After we successfully authenticate against GitHub, the user will be redirected t
 ![image](https://user-images.githubusercontent.com/68631186/122627719-db47c700-d0e3-11eb-9c9b-9c8f3743c623.png)
 [Protocol Endpoints](https://datatracker.ietf.org/doc/html/rfc6749#section-3)  
 - Authorization Endpoint(used by client)作為Authorization Server發行Authorization Grant (intercepted by OAuth2AuthorizationRequestRedirectFilter)
-- Redirection Endpoint(used by authorization server)作為Client接收Authorization Grant   (intercept Login Authentication Filter)
+- Redirection Endpoint(used by authorization server)作為Client接收Authorization Grant   (intercepted by Login Authentication Filter)
 - Token Endpoint作為Authorization Server發行Access Token
 
 ```
 	     +----------+
 	     | Resource |
 	     |   Owner  |
-	     |          |
 	     +----------+
 		  ^
 		  |
 		 (B)
+		  |
 	     +----|-----+          Client Identifier      +---------------+
-	     |         -+----(A)-- & Redirection URI ---->|               |
+	     |          |>---(A)-- & Redirection URI ---->|               |
 	     |  User-   |                                 | Authorization |
-	     |  Agent  -+----(B)-- User authenticates --->|     Server    |
+	     |  Agent   |>---(B)-- User authenticates --->|     Server    |
 	     |          |                                 |               |
-	     |         -+----(C)-- Authorization Code ---<|               |
+	     |          |<---(C)-- Authorization Code ---<|               |
 	     +-|----|---+                                 +---------------+
 	       |    |                                         ^      v
 	      (A)  (C)                                        |      |
@@ -92,24 +93,25 @@ After we successfully authenticate against GitHub, the user will be redirected t
 ```
 
 [Ref](https://stackoverflow.com/questions/12482070/how-does-a-user-register-with-oauth)   
-Resource Owner (Your third party application account)  
-Client app (The app you are using to access those things)  
-Identity Provider (Google, Facebook, Twitter, etc.)  
-Resource Server (Same as Identity provider, or some other service)  
-Resources (Things you want access to)  
+- Resource Owner (Your third party application account)  
+- Client app (The app you are using to access those things)  
+- Identity Provider (Google, Facebook, Twitter, etc...)  
+- Resource Server (Same as Identity provider, or some other service)  
+- Resources (Things you want access to)  
 
 [Auth Code Grant Flow](https://blog.yorkxin.org/posts/oauth2-4-1-auth-code-grant-flow.html) 
-- (A) The client initiates the flow by directing the resource owner's user-agent to the authorization endpoint. The client includes its client identifier, requested `scope`, local `state`, and a `redirection URI` to which the authorization server will send the user-agent back once access is granted (or denied).  
+- (A) The client initiates the flow by directing the resource owner's **user-agent to the authorization endpoint**. 
+	> The client includes its client identifier, requested `scope`, local `state`, and a `redirect_uri` to which the authorization server will send the user-agent back once access (to the third party account) is granted (or denied).  
 - (B) The authorization server authenticates the resource owner (via the user-agent) and **establishes** whether the resource owner grants or denies the client's access request.  
-- (C) Assuming the resource owner grants access(You are logging in the third party account), the authorization server redirects the user-agent back to the client using the `redirection URI` provided earlier.  
-     - The redirection URI includes an authorization code and any local state provided by the client earlier
-     - accounts.google.com/o/oauth2/v2/auth?`response_type`=code&`client_id`=150677252870-78tlj6v2mm653alhodqr9t5br5fu5bs0.apps.googleusercontent.com&`scope`=openid+profile+email&`state`=QFWkpSxvN-zs5gGoMCnFGDJDTYF1HZg1FC_5l31H0qg%3D&`redirect_uri`=http%3A%2F%2Flocalhost%3A8080%2Flogin%2Foauth2%2Fcode%2Fgoogle.
-- (D) (The Login Authentication Filter Does its job here)The client requests an access token from the authorization server's token endpoint by including the authorization code received in the previous step. 
-	> When making the request, the client authenticates with the authorization server.  
-	> The client includes the redirection URI used to obtain the authorization code for verification.  
+- (C) Assuming the resource owner(Your Third Party Account) grants access, the authorization server redirects the user-agent back to the client using the `redirect_uri` provided earlier.  
+     - The redirection URI includes an authorization code and any local state provided by the client earlier 
+     > For example   
+     >> accounts.google.com/o/oauth2/v2/auth?`response_type`=code&`client_id`=150677252870-78tlj6v2mm653alhodqr9t5br5fu5bs0.apps.googleusercontent.com&`scope`=openid+profile+email&`state`=QFWkpSxvN-zs5gGoMCnFGDJDTYF1HZg1FC_5l31H0qg%3D&`redirect_uri`=http%3A%2F%2Flocalhost%3A8080%2Flogin%2Foauth2%2Fcode%2Fgoogle.
+- (D) The client requests an access token from the authorization server's token endpoint by including the authorization code received in the previous step. 
 - (E) The authorization server authenticates the client, validates the authorization code, and ensures that the redirection URI received matches the URI used to redirect the client in step (C). **If valid, the authorization server responds back with an access token and, optionally, a refresh token.**  
 
-# Spring boot Oauth2User Authorization Flow
+# Configure OAuth2Client Security
+
 ```java
 @EnableWebSecurity
 public class OAuth2ClientSecurityConfig extends WebSecurityConfigurerAdapter {
@@ -177,8 +179,6 @@ Configure A Oauth2 AuthorizedClient Provider we need these
   > OAuth2AuthorizedClientRepository
 - Service
   > OAuth2AuthorizedClientService
-- (D) The client requests an access token from the authorization server's token endpoint by including the authorization code received in the previous step. When making the request, the client authenticates with the authorization server. The client includes the redirection URI used to obtain the authorization code for verification.  
-46
 
 ### OAuth2AuthorizedClient 
 For a client is considered to be authorized when the end-user (Resource Owner) has granted authorization to the client to access its protected resources.
@@ -325,9 +325,9 @@ OAuth2AuthorizationRequestRedirectFilter handles for
 > The request contains `client_id`、`scope` and `state` to form a `redirect_url` and redirect to third party authorized's url (github登入頁面)
 
 OAuth2LoginAuthenticationFilter handles for
-1. The filter will compare the data after the user press the login button in the third party page
-2. (if the user is granted) filter will add `granted code` in the `redirect_url` 
-3. parse the redirect_url' `granted code` and `state` with the ones stored in the http session if it is valid then it returns access_token url (so client can use this acces token to access third party resource)
+1. It will compare the data after the user press the login button in the third party page
+2. (If the user is granted) the filter will add `code`, `state` ...etc ... parameters  in the `redirect_url` 
+3. Parse the `redirect_url` `code` and `state` with the ones stored in the http session if it is valid then it returns access_token url (so client can use this acces token to access third party resource)
 
 > Oauth2LoginAuthenticationFilter check the grant code and state if they are valid then it return access_token
 > client use access token and Iauth2UserService to get third party user details (protected resource ) and then return instance of Authenttication 
@@ -387,7 +387,7 @@ private OAuth2AuthorizationRequest resolve(HttpServletRequest request, String re
 		return null;
 	}
 	
-	// get the associated client with registration id from End User's protected resource
+	// Find if the Client is registered or not  
 	ClientRegistration clientRegistration = this.clientRegistrationRepository.findByRegistrationId(registrationId);
 	if (clientRegistration == null) {
 		throw new IllegalArgumentException("Invalid Client Registration with Id: " + registrationId);
@@ -414,7 +414,6 @@ private OAuth2AuthorizationRequest resolve(HttpServletRequest request, String re
 			.attributes(attributes); //  attributes ( registration id, ... etc ...)
 	
 	this.authorizationRequestCustomizer.accept(builder);
-
 	return builder.build();
 }
 ```
@@ -611,6 +610,7 @@ public void sendRedirect(HttpServletRequest request, HttpServletResponse respons
     }
  
     // the response will send here
+    // To the page that user from third party application to grant or deny the access
     response.sendRedirect(redirectUrl);
 }
 ```
@@ -679,11 +679,10 @@ public class OAuth2LoginAuthenticationFilter extends AbstractAuthenticationProce
 		
 		/**
 		 * Intercept the Oauth2AuthorizationRequest from Authorization Server 
+		 * associated in the httpsession
 		 */
 		OAuth2AuthorizationRequest authorizationRequest = this.authorizationRequestRepository
 				.removeAuthorizationRequest(request, response);
-		// Removes and returns the OAuth2AuthorizationRequest associated to 
-		//  the provided HttpServletRequest and HttpServletResponse or if not available returns null.
 		if (authorizationRequest == null) {
 			OAuth2Error oauth2Error = new OAuth2Error(AUTHORIZATION_REQUEST_NOT_FOUND_ERROR_CODE);
 			throw new OAuth2AuthenticationException(oauth2Error, oauth2Error.toString());
@@ -722,7 +721,8 @@ public class OAuth2LoginAuthenticationFilter extends AbstractAuthenticationProce
 		// 驗證透過AuthenticationManager
 		OAuth2LoginAuthenticationToken authenticationResult = (OAuth2LoginAuthenticationToken) this
 				.getAuthenticationManager().authenticate(authenticationRequest);
-		// 建立代表該End-User的Token
+		
+		// 建立代表該User的Token
 		OAuth2AuthenticationToken oauth2Authentication = new OAuth2AuthenticationToken(
 				authenticationResult.getPrincipal(), authenticationResult.getAuthorities(),
 				authenticationResult.getClientRegistration().getRegistrationId());
