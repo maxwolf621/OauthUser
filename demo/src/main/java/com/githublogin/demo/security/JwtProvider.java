@@ -1,4 +1,4 @@
-package com.pttbackend.pttclone.security;
+package com.githublogin.demo.security;
 
 import java.io.InputStream;
 import java.security.KeyStore;
@@ -58,8 +58,9 @@ public class JwtProvider {
                 log.error("Exceptions while loading");
             }
     }
+    
     public String TokenBuilderByUser(Authentication authentication){
-        log.info("** Generate the Toke By A Authentication User");
+        log.info("** Generate the Token By A Authentication User");
         // userdetails.User
         User principal = (User) authentication.getPrincipal();
         return Jwts.builder()
