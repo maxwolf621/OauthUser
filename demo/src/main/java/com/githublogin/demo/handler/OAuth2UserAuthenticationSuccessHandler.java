@@ -58,7 +58,7 @@ public class OAuth2UserAuthenticationSuccessHandler extends SimpleUrlAuthenticat
         if(redirectUri.isPresent() && !isAuthorizedRedirectUri(redirectUri.get())) {
             throw new BadRequestException("Sorry! We've got an Unauthorized Redirect URI and can't proceed with the authentication");
         }
-
+        
         String targetUrl = redirectUri.orElse(getDefaultTargetUrl());
         String token = jwtProvider.TokenBuilderByOauth2User(authentication);
         return UriComponentsBuilder.fromUriString(targetUrl)

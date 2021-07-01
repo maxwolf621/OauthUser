@@ -2,6 +2,7 @@ package com.githublogin.demo.utility;
 
 import org.springframework.util.SerializationUtils;
 
+import lombok.experimental.UtilityClass;
 import lombok.extern.slf4j.Slf4j;
 
 import javax.servlet.http.Cookie;
@@ -11,6 +12,7 @@ import java.util.Base64;
 import java.util.Optional;
 
 @Slf4j
+@UtilityClass
 public class CookieUtils {
 
     // get the cookie from request payload sent by user agent(application/clinet/browser)

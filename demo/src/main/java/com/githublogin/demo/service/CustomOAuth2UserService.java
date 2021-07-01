@@ -1,9 +1,8 @@
-package com.githublogin.demo.server;
+package com.githublogin.demo.service;
 
 import org.springframework.stereotype.Service;
 import org.springframework.util.Assert;
 
-import com.githublogin.demo.exceptions.OAuth2UserInfoAuthenticationException;
 import com.githublogin.demo.model.User;
 import com.githublogin.demo.oauth2userInfofactory.OAuth2UserInfoFactory;
 import com.githublogin.demo.oauth2userinfo.OAuth2UserInfo;
@@ -110,7 +109,7 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService{
         OAuth2UserInfo userInfo = OAuth2UserInfoFactory.getOAuth2UserInfo(authProvider, oAuth2User.getAttributes());
 
         log.info(" '--- userInfo Name "+ userInfo.getUsername());
-        log.info(" '--- userInfo Emails "+ userInfo.getEmail());
+        log.info(" '--- userInfo Email "+ userInfo.getEmail());
         
         Assert.notNull(userInfo.getEmail(), "Email not null");
         // check if mail is null
