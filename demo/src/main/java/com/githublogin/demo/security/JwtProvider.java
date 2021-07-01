@@ -15,6 +15,7 @@ import java.sql.Date;
 import javax.annotation.PostConstruct;
 
 import org.springframework.security.core.userdetails.User;
+import org.springframework.security.oauth2.core.user.DefaultOAuth2User;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
@@ -34,7 +35,7 @@ import lombok.extern.slf4j.Slf4j;
 @Service
 public class JwtProvider {
     private KeyStore keyStore;
-    private String alias = "/pttClone.jks";
+    private String alias = "/jwtoauth2.jks";
     
     @Value("${jwt.secret}")
     private String secretKey;
@@ -70,6 +71,20 @@ public class JwtProvider {
                 .setExpiration(Date.from(Instant.now().plusMillis(getJwtExpirationInMillis())))
                 .compact();
     }       
+
+
+    public String TokenBuilderByOauth2User(Authentication authentication){
+        log.info("** Generate the Token By A Authentication User");
+        // userdetails.User
+        DefaultOAuth2User principal = (DefaultOAuth2User) authentication.getPrincipal();
+        return Jwts.builder()
+                .setSubject(principal.getName())
+                .setIssuedAt(from(Instant.now()))
+                .signWith(getPrivateKey())
+                .setExpiration(Date.from(Instant.now().plusMillis(getJwtExpirationInMillis())))
+                .compact();
+    }       
+
     public String TokenBuilderByUserName(String username){ 
         log.info("Generate the Token By user's name");
         return Jwts.builder()
@@ -82,7 +97,7 @@ public class JwtProvider {
 
     private PrivateKey getPrivateKey(){
         try {
-            PrivateKey key = (PrivateKey) keyStore.getKey("pttClone", getSecretKey().toCharArray());
+            PrivateKey key = (PrivateKey) keyStore.getKey("jwtoauth2", getSecretKey().toCharArray());
             log.info("** get Pivate Key successfully" + key.toString() );
             return key;
         } catch (UnrecoverableKeyException | KeyStoreException | NoSuchAlgorithmException e) {
@@ -94,7 +109,7 @@ public class JwtProvider {
 
     private PublicKey getPublicKey() throws KeyStoreException{
         log.info("fetch the public key from Certification");
-        return keyStore.getCertificate("pttClone").getPublicKey();
+        return keyStore.getCertificate("jwtoauth2").getPublicKey();
     }
 
     // check the vlidate of the Token used by filter 

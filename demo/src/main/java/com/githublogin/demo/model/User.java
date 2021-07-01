@@ -10,6 +10,7 @@ import javax.persistence.*;
 import javax.validation.constraints.Email;
 import javax.validation.constraints.NotBlank;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 
 import java.time.Instant;
 @Data
@@ -30,7 +31,8 @@ public class User {
     @Column(name = "user_name")
     private String username ;
     
-    @NotBlank(message = "Password required")
+    //@NotBlank(message = "Password required")
+    @JsonIgnore
     @Column(name = "password")
     private String password;
     

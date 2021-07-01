@@ -9,7 +9,10 @@ public abstract class OAuth2UserInfo {
     // claims
     protected Map<String, Object> attributes;
 
-    // consturctors (store the attributes)
+    /**
+     *consturctor : 
+     *  stores the attributes
+     */  
     public OAuth2UserInfo( Map<String, Object> attributes) {
         this.attributes = attributes;
     }
@@ -27,5 +30,6 @@ public abstract class OAuth2UserInfo {
 
     public abstract String getEmail();
 
+    //public abstract void printString();
     //public abstract String getImageUrl();
 }

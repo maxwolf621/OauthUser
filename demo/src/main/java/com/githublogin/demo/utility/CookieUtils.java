@@ -24,12 +24,15 @@ public class CookieUtils {
             }
         }
         // return null if there is no cookies in request payload 
-        log.info("There is not cookies in this request");
+        log.info("___There are no cookies in this http servlet Request");
         return Optional.empty();
     }
 
     //set up a cookie and add it in the response payload
     public static void addCookie(HttpServletResponse response, String cookieName, String cookieValue, int maxAge) {
+        log.info(" '-----> call addCookie Method");
+        log.info("Cookie Value: " + cookieValue);
+        log.info("cookie name: " + cookieName);
         Cookie cookie = new Cookie(cookieName, cookieValue);
         cookie.setPath("/");
         cookie.setHttpOnly(true);
@@ -40,6 +43,7 @@ public class CookieUtils {
     // request payload included cookies and sent to httpservlet
     public static void deleteCookie(HttpServletRequest request, HttpServletResponse response, String cookieName) {
         Cookie[] cookies = request.getCookies();
+        log.info("  '---->call deleteCookie Method");
         if (cookies != null && cookies.length > 0) {
             for (Cookie cookie: cookies) {
                 /* this response payload will send back to client 
