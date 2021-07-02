@@ -1,6 +1,7 @@
 package com.githublogin.demo.service;
 
 import lombok.AllArgsConstructor;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 import org.springframework.beans.factory.annotation.Value;
@@ -15,16 +16,21 @@ import org.springframework.stereotype.Service;
 
 import com.githublogin.demo.model.NotificationMail;
 
-
+/**
+ * If we use AllargsConstructor instad of RequiredArgsConstructor then error occurs
+ * Resolve : https://stackoverflow.com/questions/52321988/best-practice-for-value-fields-lombok-and-constructor-injection
+ * Parameter 0 of constructor in com.githublogin.demo.service.SendMailService required a bean of type 'java.lang.String' that could not be found.
+ */
 @Service
-@AllArgsConstructor
+@RequiredArgsConstructor
 @Slf4j
 public class SendMailService {
 
-   @Value("${tokeurl.sendby}")
-   private final String Email;
+   // set Email as the default value
+   @Value("${tokenurl.sendby}")
+   private String Email;
    private final JavaMailSender toSend;
-   private final MailBodyBuilder mailbodybuilder;
+   private final MailBodyBuilder mailBodyBuilder;
 
    @Async
    public void SendTokenMail(NotificationMail userMail){
@@ -36,7 +42,7 @@ public class SendMailService {
             message.setFrom(Email);
             message.setTo(userMail.getRecipient());
             message.setSubject(userMail.getSubject());
-            message.setText(mailbodybuilder.BuilderHTMLContent(userMail.getBody()));
+            message.setText(mailBodyBuilder.BuilderHTMLContent(userMail.getBody()));
          }
       };
       try {

@@ -45,10 +45,8 @@ public class GitHubUserInfo extends OAuth2UserInfo {
         collaborators=0, 
         two_factor_authentication=false, 
         plan={name=free, space=976562499, collaborators=0, private_repos=10000}
-
      */
-
-
+    
     /**
      *  Constructor
      *      stores the attributes form github

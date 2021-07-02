@@ -3,21 +3,37 @@ package com.githublogin.demo.config;
 import com.githublogin.demo.handler.OAuth2USerAuthenticationFailureHandler;
 import com.githublogin.demo.handler.OAuth2UserAuthenticationSuccessHandler;
 import com.githublogin.demo.repository.CustomOAuth2AuthorizationRequestRepository;
-import com.githublogin.demo.server.CustomOAuth2UserService;
+import com.githublogin.demo.service.CustomOAuth2UserService;
 
+import com.githublogin.demo.filter.JwtAuthenticationFilter;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Bean;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.config.BeanIds;
+import org.springframework.security.config.annotation.authentication.builders.AuthenticationManagerBuilder;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configuration.WebSecurityConfigurerAdapter;
-import org.springframework.security.config.http.SessionCreationPolicy;
+//import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.oauth2.client.web.AuthorizationRequestRepository;
+//import org.springframework.security.oauth2.client.web.HttpSessionOAuth2AuthorizationRequestRepository;
+import org.springframework.security.oauth2.core.endpoint.OAuth2AuthorizationRequest;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+//import org.springframework.http.HttpMethod;
+
 
 import lombok.AllArgsConstructor;
-
+import lombok.extern.slf4j.Slf4j;
 
 @EnableWebSecurity
 @AllArgsConstructor
+@Slf4j
 public class SecurityConfig extends WebSecurityConfigurerAdapter{
     /*
-
     http://localhost:8080/login/oauth2/code/github?
     error=redirect_uri_mismatch&
     error_description=The+redirect_uri+MUST+match+the+registered+callback+URL+for+this+application.
@@ -38,6 +54,12 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter{
     private final OAuth2UserAuthenticationSuccessHandler oAuth2AuthenticationSuccessHandler;
     private final OAuth2USerAuthenticationFailureHandler oAuth2USerAuthenticationFailureHandler;
     private final CustomOAuth2UserService userService;
+
+
+    private final UserDetailsService userdetailsService;
+    private final JwtAuthenticationFilter jwtAuthenticationFilter;
+
+
     @Override
     public void configure(HttpSecurity http) throws Exception{
         http
@@ -65,5 +87,37 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter{
                     .and()
                 .successHandler(oAuth2AuthenticationSuccessHandler)
                 .failureHandler(oAuth2USerAuthenticationFailureHandler);
+
+        log.info("---------Filter For Local Login");
+        http.addFilterBefore(jwtAuthenticationFilter,UsernamePasswordAuthenticationFilter.class);
+    }
+
+
+    /**
+     * For local login
+     */
+    @Bean
+    public AuthorizationRequestRepository<OAuth2AuthorizationRequest> customAuthorizationRequestRepository() {
+	    return new CustomOAuth2AuthorizationRequestRepository();
+    }
+
+    /* For Local Authentication*/
+    @Bean
+    PasswordEncoder passwordEncoder(){
+            return new BCryptPasswordEncoder();
+    }
+
+    //Generate A Custom AuthenticationProvider
+    // and Expose it as a bean (Automatic Injection)
+    @Bean(BeanIds.AUTHENTICATION_MANAGER)
+    @Override
+    public AuthenticationManager authenticationManagerBean() throws Exception {
+        return super.authenticationManagerBean();
+    }
+
+    // Configure custom AuthenticationProvider in a AuthenticationManager
+    @Autowired
+    public void configureCustomProvider(AuthenticationManagerBuilder buildauthenticationprovider) throws Exception{
+        buildauthenticationprovider.userDetailsService(userdetailsService).passwordEncoder(passwordEncoder());
     }
 }

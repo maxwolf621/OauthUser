@@ -35,8 +35,9 @@ import lombok.extern.slf4j.Slf4j;
 @Service
 public class JwtProvider {
     private KeyStore keyStore;
-    private String alias = "/jwtoauth2.jks";
-    
+
+    @Value("${jwt.alias}")
+    private String alias;
     @Value("${jwt.secret}")
     private String secretKey;
     @Value("${jwt.expiration.time}")
