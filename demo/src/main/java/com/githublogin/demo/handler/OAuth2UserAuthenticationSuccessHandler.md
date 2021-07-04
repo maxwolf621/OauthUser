@@ -2,7 +2,6 @@ package com.githublogin.demo.handler;
 
 import java.io.IOException;
 import java.net.URI;
-import java.util.LinkedHashMap;
 import java.util.Optional;
 
 import javax.servlet.ServletException;
@@ -12,22 +11,16 @@ import javax.servlet.http.HttpServletResponse;
 
 import com.githublogin.demo.config.OAuth2Properties;
 import com.githublogin.demo.exceptions.BadRequestException;
-import com.githublogin.demo.oauth2userinfo.OAuth2UserInfo;
 import com.githublogin.demo.repository.CustomOAuth2AuthorizationRequestRepository;
 import com.githublogin.demo.security.JwtProvider;
-import com.githublogin.demo.security.OAuth2UserPrincipal;
 import com.githublogin.demo.utility.CookieUtils;
 
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.web.authentication.SimpleUrlAuthenticationSuccessHandler;
 import org.springframework.stereotype.Component;
 import org.springframework.web.util.UriComponentsBuilder;
 
-
-
 import lombok.AllArgsConstructor;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 import static com.githublogin.demo.repository.CustomOAuth2AuthorizationRequestRepository.REDIRECT_URI_COOKIE;
@@ -37,7 +30,6 @@ import static com.githublogin.demo.repository.CustomOAuth2AuthorizationRequestRe
 
 /* create a jwt token uri to activate  */
 @Component
-@RequiredArgsConstructor
 @AllArgsConstructor
 @Slf4j
 public class OAuth2UserAuthenticationSuccessHandler extends SimpleUrlAuthenticationSuccessHandler{
@@ -45,10 +37,6 @@ public class OAuth2UserAuthenticationSuccessHandler extends SimpleUrlAuthenticat
     private final CustomOAuth2AuthorizationRequestRepository customOAuth2AuthorizationRequestRepository;
     private final JwtProvider jwtProvider; 
     private final OAuth2Properties oAuth2Properties;
-
-    @Value("${github.resource.userInfoUri}")
-    private String userInfoUri; 
-    private static final String GITHUB = "Github";
 
     @Override
     public void onAuthenticationSuccess(HttpServletRequest request, HttpServletResponse response, Authentication authentication) throws IOException, ServletException {
@@ -59,15 +47,6 @@ public class OAuth2UserAuthenticationSuccessHandler extends SimpleUrlAuthenticat
             return;
         }
 
-        OAuth2UserPrincipal userPrincipal = (OAuth2UserPrincipal) authentication.getPrincipal();
-        OAuth2UserInfo userInfo = userPrincipal.getUserInfo();
-
-        if(userInfo.getAuthProvider().equalsIgnoreCase(GITHUB) && userInfo.getEmail().isBlank()){
-            String token = ((OAuth2AuthenticationDetails) ((OAuth2Authentication) authentication).getDetails()).getTokenValue();
-            GitHubTemplate github = new GitHubTemplate(token);
-            LinkedHashMap<String, Object>[] emails = github.getRestTemplate().getForObject(userInfoUri + "/emails", LinkedHashMap[].class);
-            String email = (String) emails[0].get("email");
-        }
         clearAuthenticationAttributes(request, response);
         getRedirectStrategy().sendRedirect(request, response, targetUrl);
     }

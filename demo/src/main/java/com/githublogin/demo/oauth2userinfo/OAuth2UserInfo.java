@@ -2,7 +2,7 @@ package com.githublogin.demo.oauth2userinfo;
 
 import java.util.Map;
 
-import com.githublogin.demo.model.AuthProviderType;
+//import com.githublogin.demo.model.AuthProviderType;
 
 public abstract class OAuth2UserInfo {
     
@@ -22,7 +22,7 @@ public abstract class OAuth2UserInfo {
         return attributes;
     }
 
-    public abstract AuthProviderType getAuthProvider();
+    public abstract String getAuthProvider();
 
     public abstract String getId();
 

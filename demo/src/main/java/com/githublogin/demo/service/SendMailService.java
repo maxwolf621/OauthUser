@@ -1,6 +1,5 @@
 package com.githublogin.demo.service;
 
-import lombok.AllArgsConstructor;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 

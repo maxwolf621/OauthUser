@@ -17,24 +17,26 @@ public class CookieUtils {
 
     // get the cookie from request payload sent by user agent(application/clinet/browser)
     public static Optional<Cookie> getCookie(HttpServletRequest request, String cookieName) {
+        log.info(" '----> CookieUtils getCookie");
         Cookie[] cookies = request.getCookies();
         if (cookies != null && cookies.length > 0) {
             for (Cookie cookie : cookies) {
                 if (cookie.getName().equals(cookieName)) {
+                    log.info("  '___getCookie: " + cookieName);
                     return Optional.of(cookie);
                 }
             }
         }
         // return null if there is no cookies in request payload 
-        log.info("___There are no cookies in this http servlet Request");
+        log.info(" '___There are no cookies in this http servlet Request");
         return Optional.empty();
     }
 
     //set up a cookie and add it in the response payload
     public static void addCookie(HttpServletResponse response, String cookieName, String cookieValue, int maxAge) {
-        log.info(" '-----> call addCookie Method");
-        log.info("Cookie Value: " + cookieValue);
-        log.info("cookie name: " + cookieName);
+        log.info(" '-----> CookieUtils addCookie");
+        log.info("  '_______Cookie Value: " + cookieValue);
+        log.info("  '_______Cookie Name: " + cookieName);
         Cookie cookie = new Cookie(cookieName, cookieValue);
         cookie.setPath("/");
         cookie.setHttpOnly(true);
@@ -44,12 +46,15 @@ public class CookieUtils {
 
     // request payload included cookies and sent to httpservlet
     public static void deleteCookie(HttpServletRequest request, HttpServletResponse response, String cookieName) {
+        log.info(" '-----> CookieUtils deleteCookie");
         Cookie[] cookies = request.getCookies();
-        log.info("  '---->call deleteCookie Method");
         if (cookies != null && cookies.length > 0) {
             for (Cookie cookie: cookies) {
-                /* this response payload will send back to client 
-                     .setMaxAge(0) : Once client receives the response payload delete the cookie stored in client
+                /**
+                 - responsepayload will send back to client 
+                 - cookie.setMaxAge(0)
+                       '-----> Once client receives the response. 
+                               It deletes the cookie stored in client.
                 */
                 if (cookie.getName().equals(cookieName)) {
                     cookie.setValue("");
@@ -63,12 +68,14 @@ public class CookieUtils {
 
     // Seralize the data
     public static String serialize(Object object) {
+        log.info("  '----> serialize data");
         return Base64.getUrlEncoder()
                 .encodeToString(SerializationUtils.serialize(object));
     }
 
     // deserialize the data
     public static <T> T deserialize(Cookie cookie, Class<T> cls) {
+        log.info("  '----> deserialize data");
         return cls.cast(SerializationUtils.deserialize(
                         Base64.getUrlDecoder().decode(cookie.getValue())));
     }

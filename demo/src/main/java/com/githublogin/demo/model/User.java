@@ -13,6 +13,10 @@ import javax.validation.constraints.NotBlank;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 
 import java.time.Instant;
+
+// Annotation : 
+//  '---> https://springbootdev.com/2018/03/13/spring-data-jpa-auditing-with-createdby-createddate-lastmodifiedby-and-lastmodifieddate/
+
 @Data
 @AllArgsConstructor
 @NoArgsConstructor

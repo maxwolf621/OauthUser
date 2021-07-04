@@ -6,11 +6,13 @@ import com.githublogin.demo.model.AuthProviderType;
 
 public class GitHubUserInfo extends OAuth2UserInfo {
 
-    /**
+    
+    /** 
+     --------------------- Attributes ---------------------
         login=maxwolf621, 
-        id=68631186, 
-        node_id=MDQ6VXNlcjY4NjMxMTg2, 
-        avatar_url=https://avatars.githubusercontent.com/u/68631186?v=4, 
+        id= .... , 
+        node_id= ... , 
+        avatar_url=https://avatars.githubusercontent.com/ .... , 
         gravatar_id=, 
         url=https://api.github.com/users/maxwolf621, 
         html_url=https://github.com/maxwolf621, 
@@ -26,7 +28,8 @@ public class GitHubUserInfo extends OAuth2UserInfo {
         type=User, 
         site_admin=false, 
         name=maxwolf621, 
-        company=null, blog=, 
+        company=null, 
+        blog=, 
         location=null, 
         email=null, 
         hireable=null, 
@@ -46,11 +49,9 @@ public class GitHubUserInfo extends OAuth2UserInfo {
         two_factor_authentication=false, 
         plan={name=free, space=976562499, collaborators=0, private_repos=10000}
      */
+
+    private String privateEmail;
     
-    /**
-     *  Constructor
-     *      stores the attributes form github
-     */
     public GitHubUserInfo(Map<String, Object> claims){
         super(claims);
     }
@@ -58,8 +59,8 @@ public class GitHubUserInfo extends OAuth2UserInfo {
     private final AuthProviderType authProvider = AuthProviderType.GITHUB;
 
     @Override
-    public AuthProviderType getAuthProvider(){
-        return authProvider;
+    public String getAuthProvider(){
+        return authProvider.toString();
     } 
 
     @Override
@@ -74,8 +75,20 @@ public class GitHubUserInfo extends OAuth2UserInfo {
 
     @Override
     public String getEmail() {
-        //return (String) attributes.get("email");
-        return (String) "jervismayer@gmail.com";
+        return (String) attributes.get("email");
     }
 
+    /**
+     * if getEmail() is null
+         '---> It menas the email is default as private Email in this github account
+         '---> we must get use userinfo .../user/email to get private email     
+     * @param privateEmail
+     */
+    public void setprivate_mail(String privateEmail){
+        this.privateEmail = privateEmail;
+    }
+
+    public String getPrivateEmail(){
+        return this.privateEmail;
+    }
 }
