@@ -34,8 +34,8 @@ public class GoogleUserInfo extends OAuth2UserInfo {
     private final AuthProviderType authProvider = AuthProviderType.GOOGLE;
 
     @Override
-    public String getAuthProvider(){
-        return authProvider.toString();
+    public AuthProviderType getAuthProvider(){
+        return authProvider;
     }
 
     @Override

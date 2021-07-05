@@ -35,7 +35,7 @@ import com.githublogin.demo.security.OAuth2UserPrincipal;
 @Service
 @AllArgsConstructor
 @Slf4j
-public class CustomOAuth2UserService extends DefaultOAuth2UserService {
+public class CustomOAuth2UserPrincipalService extends DefaultOAuth2UserService {
 
     // oauthe2userRequest contains clientregistration,token, additional parameter
     @Override

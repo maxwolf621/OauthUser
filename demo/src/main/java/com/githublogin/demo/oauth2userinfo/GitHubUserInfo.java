@@ -59,8 +59,8 @@ public class GitHubUserInfo extends OAuth2UserInfo {
     private final AuthProviderType authProvider = AuthProviderType.GITHUB;
 
     @Override
-    public String getAuthProvider(){
-        return authProvider.toString();
+    public AuthProviderType getAuthProvider(){
+        return authProvider;
     } 
 
     @Override
@@ -75,8 +75,12 @@ public class GitHubUserInfo extends OAuth2UserInfo {
 
     @Override
     public String getEmail() {
-        return (String) attributes.get("email");
+        String email = (String) attributes.get("email");
+        if(email.isEmpty())
+            return this.privateEmail;
+        return email;
     }
+
 
     /**
      * if getEmail() is null
@@ -84,11 +88,7 @@ public class GitHubUserInfo extends OAuth2UserInfo {
          '---> we must get use userinfo .../user/email to get private email     
      * @param privateEmail
      */
-    public void setprivate_mail(String privateEmail){
+    public void setPrivateEmail(String privateEmail){
         this.privateEmail = privateEmail;
-    }
-
-    public String getPrivateEmail(){
-        return this.privateEmail;
     }
 }

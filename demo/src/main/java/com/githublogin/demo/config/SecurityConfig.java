@@ -4,7 +4,7 @@ import com.githublogin.demo.handler.CustomAuthenticationEntryPoint;
 import com.githublogin.demo.handler.OAuth2USerAuthenticationFailureHandler;
 import com.githublogin.demo.handler.OAuth2UserAuthenticationSuccessHandler;
 import com.githublogin.demo.repository.CustomOAuth2AuthorizationRequestRepository;
-import com.githublogin.demo.service.CustomOAuth2UserService;
+import com.githublogin.demo.service.CustomOAuth2UserPrincipalService;
 
 import com.githublogin.demo.filter.JwtAuthenticationFilter;
 
@@ -68,7 +68,7 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter{
     private final CustomOAuth2AuthorizationRequestRepository authorizationRequestRepository;
     private final OAuth2UserAuthenticationSuccessHandler oAuth2AuthenticationSuccessHandler;
     private final OAuth2USerAuthenticationFailureHandler oAuth2USerAuthenticationFailureHandler;
-    private final CustomOAuth2UserService userService;
+    private final CustomOAuth2UserPrincipalService userService;
 
     /* Local user */
     private final UserDetailsService userdetailsService;

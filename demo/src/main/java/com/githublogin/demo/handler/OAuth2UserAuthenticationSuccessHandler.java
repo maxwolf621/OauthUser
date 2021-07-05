@@ -9,21 +9,25 @@ import javax.servlet.ServletException;
 import javax.servlet.http.Cookie;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+import javax.validation.constraints.NotNull;
 
 import com.githublogin.demo.config.OAuth2Properties;
 import com.githublogin.demo.exceptions.BadRequestException;
 import com.githublogin.demo.oauth2userinfo.OAuth2UserInfo;
 import com.githublogin.demo.repository.CustomOAuth2AuthorizationRequestRepository;
+import com.githublogin.demo.repository.UserRepository;
 import com.githublogin.demo.security.JwtProvider;
 import com.githublogin.demo.security.OAuth2UserPrincipal;
+import com.githublogin.demo.service.OAuth2Service;
 import com.githublogin.demo.utility.CookieUtils;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.web.authentication.SimpleUrlAuthenticationSuccessHandler;
+import org.springframework.social.github.api.impl.GitHubTemplate;
 import org.springframework.stereotype.Component;
+import org.springframework.util.Assert;
 import org.springframework.web.util.UriComponentsBuilder;
-
 
 
 import lombok.AllArgsConstructor;
@@ -35,6 +39,16 @@ import static com.githublogin.demo.repository.CustomOAuth2AuthorizationRequestRe
 // SimpleUrlAuthenticationSuccessHandler
 // https://github.com/spring-projects/spring-security/blob/main/web/src/main/java/org/springframework/security/web/authentication/SimpleUrlAuthenticationSuccessHandler.java
 
+// RestTemplate Example
+// https://spring.io/guides/gs/consuming-rest/
+// https://howtodoinjava.com/spring-boot2/resttemplate/spring-restful-client-resttemplate-example/
+
+/** Access APi resource
+// https://spring.io/blog/2018/03/06/using-spring-security-5-to-integrate-with-oauth-2-secured-services-such-as-facebook-and-github
+// Authentication object kept in the security context is actually an OAuth2AuthenticationToken which, 
+// along with help from 
+   OAuth2AuthorizedClientService can avail us with an access token for making requests against the service’s API.
+ */
 /* create a jwt token uri to activate  */
 @Component
 @RequiredArgsConstructor
@@ -45,7 +59,7 @@ public class OAuth2UserAuthenticationSuccessHandler extends SimpleUrlAuthenticat
     private final CustomOAuth2AuthorizationRequestRepository customOAuth2AuthorizationRequestRepository;
     private final JwtProvider jwtProvider; 
     private final OAuth2Properties oAuth2Properties;
-
+    private final OAuth2Service oAuth2Service;
     @Value("${github.resource.userInfoUri}")
     private String userInfoUri; 
     private static final String GITHUB = "Github";
@@ -61,16 +75,21 @@ public class OAuth2UserAuthenticationSuccessHandler extends SimpleUrlAuthenticat
 
         OAuth2UserPrincipal userPrincipal = (OAuth2UserPrincipal) authentication.getPrincipal();
         OAuth2UserInfo userInfo = userPrincipal.getUserInfo();
-
-        if(userInfo.getAuthProvider().equalsIgnoreCase(GITHUB) && userInfo.getEmail().isBlank()){
-            String token = ((OAuth2AuthenticationDetails) ((OAuth2Authentication) authentication).getDetails()).getTokenValue();
+        String email =  userInfo.getEmail();
+        if(userInfo.getAuthProvider().toString().equalsIgnoreCase(GITHUB) && email.isBlank()){
+            String token = authentication.getDetails().getTokenValue();
             GitHubTemplate github = new GitHubTemplate(token);
             LinkedHashMap<String, Object>[] emails = github.getRestTemplate().getForObject(userInfoUri + "/emails", LinkedHashMap[].class);
-            String email = (String) emails[0].get("email");
+            email = (String) emails[0].get("email");
         }
+
+        Assert.notNull(email, "Email cant not be null");
+        oAuth2Service.processOauth2User(userInfo, email);
+    
         clearAuthenticationAttributes(request, response);
         getRedirectStrategy().sendRedirect(request, response, targetUrl);
     }
+
 
     protected String determineTargetUrl(HttpServletRequest request, HttpServletResponse response, Authentication authentication) {
         Optional<String> redirectUri = CookieUtils.getCookie(request, REDIRECT_URI_COOKIE)
