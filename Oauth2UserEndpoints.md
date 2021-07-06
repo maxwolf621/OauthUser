@@ -119,8 +119,9 @@ This will be handled by the `OAuth2LoginAuthenticationFilter`, which will perfor
 - (D) The client requests an access token from the authorization server's token endpoint by including the authorization code received in the previous step. 
 - (E) The authorization server authenticates the client, validates the authorization code, and ensures that the redirection URI received matches the URI used to redirect the client in step (C). **If valid, the authorization server responds back with an access token and, optionally, a refresh token.**  
 
-# Configure OAuth2Client Security
+# Configure The OAuth2 Client
 
+To define the Client ( The Application ) have the authorization to fetch the protected resource from the third party application
 ```java
 @EnableWebSecurity
 public class OAuth2ClientSecurityConfig extends WebSecurityConfigurerAdapter {
@@ -136,8 +137,8 @@ public class OAuth2ClientSecurityConfig extends WebSecurityConfigurerAdapter {
     }
 }
 ```
-## Client Registration
-We can configure client registration via `java configuration` or `application.properties`  
+## (INFORMATION) Client Registration
+- We can configure client registration via `java configuration` or `application.properties`  
 
 A client registration holds these (The Most Important) information  
 ```
@@ -151,18 +152,17 @@ authorization URI
 token URI
 ```
 
-### ClientRegistrationRepository
+## (GET CLIENT REGISTRAION INFORMATION) ClientRegistrationRepository
+**This repository provides the ability to retrieve a sub-set of the primary client registration information, which is stored with the Authorization Server.**
 
-For Third Party Application to get the Authenticated Client 
+> Spring Boot 2.x auto-configuration binds each of the properties under `spring.security.oauth2.client.registration.[registrationId]` to an instance of ClientRegistration and then composes each of the `ClientRegistration` instance(s) within a `ClientRegistrationRepository`. [EXAMPLE CODE HERE](https://www.baeldung.com/spring-security-5-oauth2-login)  
 
-This repository provides the ability to retrieve a sub-set of the primary client registration information, which is stored with the Authorization Server.
-> Spring Boot 2.x auto-configuration binds each of the properties under `spring.security.oauth2.client.registration.[registrationId]` to an instance of ClientRegistration and then composes each of the `ClientRegistration` instance(s) within a `ClientRegistrationRepository`. 
-
-[EXAMPLE CODE HERE](https://www.baeldung.com/spring-security-5-oauth2-login)  
-
-Java Configuration instead of application properties 
+Using Java Configuration Instead of application properties 
 ```java
 @Controller
+/**
+ * Get the registration information of this application stored in Google ClientRegistrationRepository
+ */
 public class OAuth2ClientController {
     @Autowired
     private ClientRegistrationRepository clientRegistrationRepository;
@@ -178,41 +178,41 @@ public class OAuth2ClientController {
 }
 ```
 
-## (THE AUTHENTICATION/ACCESSING THE PROTECTED RESOURCE) `OAuth2AuthorizedClientProvider`
-
+## (THE AUTHORIZATION) `OAuth2AuthorizedClientProvider`
 A strategy for authorizing (or re-authorizing) an OAuth 2.0 Client (The Applciation that The user are currently using)  
 - `ClientRegistration` is a representation of a client registered with an OAuth 2.0 or OpenID Connect 1.0 Provider.
 - `OAuth2AuthorizedClient` is a representation of an Authorized Client.
    > For an Oauth2 Authorized provider must provide these two to authenticate
 
-`Oauth2AuthrizedClientProvider` delegats the persistence of an `OAuth2AuthorizedClient`, typically using an `OAuth2AuthorizedClientService` or `OAuth2AuthorizedClientRepository` provides lookup associated with the `clientOAuth2AccessToken`  
-[Example](https://www.programmersought.com/article/10451235590/)  
-
 ```
 Provider
  '--- via Oauth2AccessToken 
-            '-----> OAuth2AuthorizedClientService --- OAuth2AuthorizedClientRepository
-	    								'--- OAuth2AuthorizedClient
+      '-----> OAuth2AuthorizedClientService ---> OAuth2AuthorizedClientRepository
+	    					   '--- OAuth2AuthorizedClient
 ```
-##### REVIEW
-- How Authentication Works
-	> xxx_Manager is based on xxx_Provider via xxx_ProviderBuilder to build it
-	> xxx_Provider is based on the xxx_Repositories (to get the authenticated user resource)
+- `Oauth2AuthrizedClientProvider` delegats the persistence of an `OAuth2AuthorizedClient`, typically using an `OAuth2AuthorizedClientService` or `OAuth2AuthorizedClientRepository` provides lookup associated with the `clientOAuth2AccessToken`  
+	> [Example](https://www.programmersought.com/article/10451235590/)  
+
+##### REVIEW of The Authentication
+The Authentication Process In Spring Security
+```
+xxx_Manager is based on xxx_Provider via xxx_ProviderBuilder to build it
+
+xxx_Provider is based on the xxx_Repositories
+```
 
 ### Class OAuth2AuthorizedClient 
 
-For a client is considered to be authorized when the end-user (Resource Owner) has granted authorization to the client to access its protected resources.
+For **a client is considered to be authorized** when the end-user/Resource Owner has granted authorization to the client to access its protected resources.
 ```java
 public class OAuth2AuthorizedClient implements Serializable {
 
-  //...
-  
 	/**
 	 * Constructs an {@code OAuth2AuthorizedClient} using the provided parameters.
-	 * @param clientRegistration the authorized client's registration
-	 * @param principalName the name of the End-User {@code Principal} (Resource Owner)
-	 * @param accessToken the access token credential granted
-	 * @param refreshToken the refresh token credential granted
+	 * @param `clientRegistration`  the authorized client's registration
+	 * @param `principalName`       the name of the End-User {@code Principal} (Resource Owner)
+	 * @param `accessToken`         the access token credential granted
+	 * @param `refreshToken`        the refresh token credential granted
 	 */
 	public OAuth2AuthorizedClient(ClientRegistration clientRegistration, 
 				      String principalName,
@@ -228,7 +228,7 @@ public class OAuth2AuthorizedClient implements Serializable {
 		this.refreshToken = refreshToken;
 	}
 	
- // getter and setter ....
+ // ....
 ```
 
 ### Class OAuth2AccessToken
@@ -236,13 +236,14 @@ public class OAuth2AuthorizedClient implements Serializable {
 public class OAuth2AccessToken extends AbstractOAuth2Token {	 
 	 /**
 	 * Constructs an {@code OAuth2AccessToken} using the provided parameters.
-	 * @param tokenType the token type
-	 * @param tokenValue the token value
-	 * @param issuedAt the time at which the token was issued
-	 * @param expiresAt the expiration time on or after which the token MUST NOT be accepted
-	 * @param scopes the scope(s) associated to the token
+	 * @param tokenType    the token type
+	 * @param tokenValue   the token value
+	 * @param issuedAt     the time at which the token was issued
+	 * @param expiresAt    the expiration time on or after which the token MUST NOT be accepted
+	 * @param scopes       the scope(s) associated to the token
 	 */
-	 
+	
+	
 	public OAuth2AccessToken(TokenType tokenType, String tokenValue, Instant issuedAt, Instant expiresAt) {
 		this(tokenType, tokenValue, issuedAt, expiresAt, Collections.emptySet());
 	}
@@ -268,12 +269,15 @@ Build Up the Custom OAuth2 Authorized Client Manager
 ```java
 @Bean
 public OAuth2AuthorizedClientManager authorizedClientManager(
-	ClientRegistrationRepository clientRegistrationRepository /*Get Clinet Registration*/ ,
-	OAuth2AuthorizedClientRepository authorizedClientRepository /*Get Authrorized Client */) 
+	/*Which Third Party Application*/
+	ClientRegistrationRepository clientRegistrationRepository,
+	/*Get A Authorized Client*/
+	OAuth2AuthorizedClientRepository authorizedClientRepository) 
 	{
 
 	/*******
-	 * Building/Configuring A Custom Oauth2AuthroizedClientProvider (要求使用者需要哪些資料作為認證)
+	 * Building/Configuring A Custom Oauth2AuthroizedClientProvider 
+	 * 		要求使用者需要遞交哪些資料作為認證
 	 */
 	OAuth2AuthorizedClientProvider authorizedClientProvider =
 	    OAuth2AuthorizedClientProviderBuilder.builder()
@@ -283,9 +287,10 @@ public OAuth2AuthorizedClientManager authorizedClientManager(
 		    .password()
 		    .build();
 
-	// Build Manager via DefaultOAuth2AuthorizedClientManager With Custom Provider
+	// Build Manager via DefaultOAuth2AuthorizedClientManager With CustomProvider
 	DefaultOAuth2AuthorizedClientManager authorizedClientManager =
 	    new DefaultOAuth2AuthorizedClientManager(clientRegistrationRepository, authorizedClientRepository);
+	
 	// The construction of Provider is based on clientRegistrationRepository and authorizedClinetRepository
 	authorizedClientManager.setAuthorizedClientProvider(authorizedClientProvider);
 
@@ -343,17 +348,22 @@ private Function <OAuth2AuthorizeRequest, Map<String, Object> > contextAttribute
     };
 }   
 ```
-- When operating data outside of a HttpServletRequest context(e.g clientRegistrationId, principal name ...etc), use `AuthorizedClientServiceOAuth2AuthorizedClientManager` instead.  
-- [AuthorizedClientServiceOAuth2AuthorizedClientManager and DefaultOAuth2AuthorizedClientManager](https://stackoverflow.com/questions/67500742/what-is-the-difference-between-defaultoauth2authorizedclientmanager-and-authoriz)  
 
+### AuthorizedClientServiceOAuth2AuthorizedClientManager
+
+When operating data outside of a HttpServletRequest context(e.g clientRegistrationId, principal name ...etc), use `AuthorizedClientServiceOAuth2AuthorizedClientManager` instead. 
+> [AuthorizedClientServiceOAuth2AuthorizedClientManager and DefaultOAuth2AuthorizedClientManager](https://stackoverflow.com/questions/67500742/what-is-the-difference-between-defaultoauth2authorizedclientmanager-and-authoriz)  
+
+For Example
 ```java
 @Bean
 public OAuth2AuthorizedClientManager authorizedClientManager(
         ClientRegistrationRepository clientRegistrationRepository,
         OAuth2AuthorizedClientService authorizedClientService) {
 
-    /* Authenticate with attributes in client registration
-       not from HttpServletRequest (e.g. password , username , token ... etc)
+    /**
+     * Authenticate with attributes in client registration
+     *	 not from HttpServletRequest (e.g. password , username , token ... etc)
     */
     OAuth2AuthorizedClientProvider authorizedClientProvider =
             OAuth2AuthorizedClientProviderBuilder.builder()
@@ -370,27 +380,23 @@ public OAuth2AuthorizedClientManager authorizedClientManager(
 }
 ```
 
-# Oauth2 User Filter
-
+# Oauth2User Filter  
 There are two important filters
 1. Oauth2AuthorizationRequestRedirectFilter (If the grant is valid then we goes the next filter `OAuth2LoginAuthenticationFilter`)
 2. Oauth2LoginAuthenticationFilter
 
-OAuth2AuthorizationRequestRedirectFilter handles for 
-1. The user clicks *login via third party button* in the cient/application to redirect the user to third parhat the client request provided ty login page 
-2. The user enters email and password etc in the third party page
+#### `OAuth2AuthorizationRequestRedirectFilter` handles for 
+- When user clicks login via third party application in the client/application, `then OAuth2AuthorizationRequestRedirectFilter` will _resolve_ this request.
+	> The request contains `client_id`、`scope` and `state` to form a `redirect_url` and redirect to third party authorized's url (github登入頁面)
 
-> When user clicks login/sign up by third party (e.g github), then OAuth2AuthorizationRequestRedirectFilter will resolve this request.
-> The request contains `client_id`、`scope` and `state` to form a `redirect_url` and redirect to third party authorized's url (github登入頁面)
+#### `OAuth2LoginAuthenticationFilter` handles for
 
-OAuth2LoginAuthenticationFilter handles for
-1. It will compare the data after the user press the login button in the third party page
-2. (If the user is granted) the filter will add `code`, `state` ...etc ... parameters  in the `redirect_url` 
-3. Parse the `redirect_url` `code` and `state` with the ones stored in the http session if it is valid then it returns access_token url (so client can use this acces token to access third party resource)
-
-> Oauth2LoginAuthenticationFilter check the grant code and state if they are valid then it return access_token
-> client use access token and Iauth2UserService to get third party user details (protected resource ) and then return instance of Authenttication 
-> After that SecurityContextPersistenceFilter will store protected resource store local http session  (local endpoint)
+- (If the user grants the client can fetch resource from third party applocation ) This filter will add `Authorized Grant Code`, `state` ...etc ... parameters in the `redirect_url` 
+	> `Oauth2LoginAuthenticationFilter` checks the grant code and state if they are valid then it returns access_token
+- Parse the `redirect_url` `Authorized Grant Code` and `state` with the ones stored in the client's session.
+	> if it is valid then it returns `access_token` url (so client can use this acces token to access third party resource)
+- Client uses access token and Oauth2UserService to get third party protected resource and then return instance of Authenttication 
+- `SecurityContextPersistenceFilter` will store protected resource in the local http session  (local endpoint) after that
 
 ## OAuth2AuthorizationRequestRedirectFilter 
 [Oauth2 Filter Code](https://www.gushiciku.cn/pl/pnSK/zh-/tw)  
