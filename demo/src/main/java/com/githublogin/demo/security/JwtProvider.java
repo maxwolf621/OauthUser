@@ -15,7 +15,7 @@ import java.sql.Date;
 import javax.annotation.PostConstruct;
 
 import org.springframework.security.core.userdetails.User;
-import org.springframework.security.oauth2.core.user.DefaultOAuth2User;
+//import org.springframework.security.oauth2.core.user.DefaultOAuth2User;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
@@ -77,7 +77,7 @@ public class JwtProvider {
     public String TokenBuilderByOauth2User(Authentication authentication){
         log.info("** Generate the Token By A Authentication User");
         // userdetails.User
-        DefaultOAuth2User principal = (DefaultOAuth2User) authentication.getPrincipal();
+        OAuth2UserPrincipal principal = (OAuth2UserPrincipal) authentication.getPrincipal();
         return Jwts.builder()
                 .setSubject(principal.getName())
                 .setIssuedAt(from(Instant.now()))

@@ -249,14 +249,7 @@
 	</pluginManagement>
 	</build>
 	
-	<!-- 
-	  Definition of snapshots
-	    https://stackoverflow.com/questions/5901378/what-exactly-is-a-maven-snapshot-and-why-do-we-need-it 
-	    http://www.huangbowen.net/blog/2016/01/29/understand-official-version-and-snapshot-version-in-maven/
-	   
-	  Definition of  
-	  https://stackoverflow.com/questions/14396017/difference-between-repository-and-pluginrepository
-	-->
+
 	<repositories>
 		<repository>
 			<id>spring-milestones</id>
@@ -266,15 +259,46 @@
 				<enabled>false</enabled>
 			</snapshots>
 		</repository>
+	</repositories>
+	<pluginRepositories>
+		<pluginRepository>
+			<id>spring-milestones</id>
+			<name>Spring Milestones</name>
+			<url>https://repo.spring.io/milestone</url>
+			<snapshots>
+				<enabled>false</enabled>
+			</snapshots>
+		</pluginRepository>
+	</pluginRepositories>
+	
+	<!-- 
+	  Definition of snapshots
+	    https://stackoverflow.com/questions/5901378/what-exactly-is-a-maven-snapshot-and-why-do-we-need-it 
+	    http://www.huangbowen.net/blog/2016/01/29/understand-official-version-and-snapshot-version-in-maven/
+	   
+	  Definition of  
+	  https://stackoverflow.com/questions/14396017/difference-between-repository-and-pluginrepository
+	
+	<repositories>
 		<repository>
+			<id>spring-milestones</id>
+			<name>Spring Milestones</name>
+			<url>https://repo.spring.io/milestone</url>
+			<snapshots>
+				<enabled>false</enabled>
+			</snapshots>
+		</repository>
+	</repositories>
+	<pluginRepositories>
+		<pluginRepository>
 		    <id>spring-repo</id>
 		    <name>Spring Repository</name>
 		    <url>https://repo.spring.io/release</url>
-		</repository>   
-		<repository>
-		    <id>spring-snapshot</id>
-		    <name>Spring Snapshot Repository</name>
-		    <url>https://repo.spring.io/snapshot</url>
-		</repository>
-	</repositories>	
+			<snapshots>
+				<enabled>false</enabled>
+			</snapshots>
+		</pluginRepository>   
+	
+	</pluginRepositories>
+-->
 </project>

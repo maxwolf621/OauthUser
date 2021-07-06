@@ -49,9 +49,6 @@ public class GitHubUserInfo extends OAuth2UserInfo {
         two_factor_authentication=false, 
         plan={name=free, space=976562499, collaborators=0, private_repos=10000}
      */
-
-    private String privateEmail;
-    
     public GitHubUserInfo(Map<String, Object> claims){
         super(claims);
     }
@@ -76,19 +73,6 @@ public class GitHubUserInfo extends OAuth2UserInfo {
     @Override
     public String getEmail() {
         String email = (String) attributes.get("email");
-        if(email.isEmpty())
-            return this.privateEmail;
         return email;
-    }
-
-
-    /**
-     * if getEmail() is null
-         '---> It menas the email is default as private Email in this github account
-         '---> we must get use userinfo .../user/email to get private email     
-     * @param privateEmail
-     */
-    public void setPrivateEmail(String privateEmail){
-        this.privateEmail = privateEmail;
     }
 }
