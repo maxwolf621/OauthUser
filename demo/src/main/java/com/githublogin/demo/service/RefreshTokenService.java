@@ -26,10 +26,16 @@ public class RefreshTokenService {
     private final RefreshTokenRepository refreshTokenRepo;
 
     public RefreshToken generateRefreshToken() {
+        /** 
         RefreshToken refreshToken = new RefreshToken();
         refreshToken.setToken(UUID.randomUUID().toString());
         refreshToken.setCreatedDate(Instant.now());
+        */
 
+        RefreshToken refreshToken = RefreshToken.builder()
+                                                .token(UUID.randomUUID().toString())
+                                                .createdDate(Instant.now())
+                                                .build();
         return refreshTokenRepo.save(refreshToken);
     }
 

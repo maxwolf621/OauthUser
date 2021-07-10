@@ -74,7 +74,32 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter{
     private final UserDetailsService userdetailsService;
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
 
+    /**
+     * Paths of Swagger 
+     * {@link https://stackoverflow.com/questions/37671125/how-to-configure-spring-security-to-allow-swagger-url-to-be-accessed-without-aut}
+     */
+    private static final String[] AUTH_WHITELIST = {
+        // -- Swagger UI v2
+        "/v2/api-docs",
+        "/swagger-resources",
+        "/swagger-resources/**",
+        "/configuration/ui",
+        "/configuration/security",
+        "/swagger-ui.html",
+        "/webjars/**",
+        // -- Swagger UI v3 (OpenAPI)
+        "/v3/api-docs/**",
+        "/swagger-ui/**",
+        // -- authentication for registration,login,refresh, oauth2User
+        "/api/auth/**","auth2/**",
+        // -- permit 
+        "/","/error","/favicon.ico",
+        
+    };
 
+    /**
+     * @param http Security Our Web Pages
+     */
     @Override
     public void configure(HttpSecurity http) throws Exception{
         http
@@ -88,11 +113,8 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter{
             .exceptionHandling().authenticationEntryPoint(new CustomAuthenticationEntryPoint())
                 .and()
             .authorizeRequests()
-                .antMatchers("/", "/error", "/favicon.ico").permitAll()
-                .antMatchers("/api/auth/**").permitAll()
-                .antMatchers("/oauth2/**").permitAll()
-                .anyRequest()
-                .authenticated()
+                .antMatchers(AUTH_WHITELIST).permitAll() // white lists
+                .anyRequest().authenticated() // Rests need to be authenticated
                 .and()
             .oauth2Login()
                 .authorizationEndpoint()        

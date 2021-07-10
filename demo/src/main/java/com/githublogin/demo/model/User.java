@@ -12,6 +12,8 @@ import javax.validation.constraints.NotBlank;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 
+import io.swagger.annotations.ApiModel;
+
 import java.time.Instant;
 
 // Annotation : 
@@ -24,7 +26,8 @@ import java.time.Instant;
 @Entity
 @Table(name = "user", uniqueConstraints = {
     @UniqueConstraint(columnNames = "mail")
-}) 
+})
+@ApiModel( value = "User Model", description = "To store the user information") 
 public class User {
     @Id
     @GeneratedValue(strategy = IDENTITY)

@@ -48,22 +48,22 @@ public class JwtProvider {
             log.warn("**************initialize the keystore******************");
             try {
                 keyStore = KeyStore.getInstance("JKS");
-                log.info("** get JKS keyStore");
+                log.info("  '--- KeyStore.getInstance method");
             } catch (KeyStoreException e) {
                 e.printStackTrace();
             }
             InputStream resourceAsStream = getClass().getResourceAsStream(alias);
             try {
                 keyStore.load(resourceAsStream, getSecretKey().toCharArray());
-                log.warn("**************loading A key store******************");
+                log.warn("  '--- keystore.load method");
             } catch (NoSuchAlgorithmException | CertificateException | java.io.IOException e) {
                 log.error("Exceptions while loading");
             }
     }
     
     public String TokenBuilderByUser(Authentication authentication){
-        log.info("** Generate the Token By A Authentication User");
-        // userdetails.User
+        log.info("  '--- TokenBuilderByUser Generates the Token By A UserDetails.User");
+        // Userdetails.User
         User principal = (User) authentication.getPrincipal();
         return Jwts.builder()
                 .setSubject(principal.getUsername())
@@ -75,7 +75,7 @@ public class JwtProvider {
 
 
     public String TokenBuilderByOauth2User(Authentication authentication){
-        log.info("** Generate the Token By A Authentication User");
+        log.info("  '--- TokenBuilderByOauth2User Generates the Token By A Oauth2User");
         // userdetails.User
         OAuth2UserPrincipal principal = (OAuth2UserPrincipal) authentication.getPrincipal();
         return Jwts.builder()
@@ -87,7 +87,7 @@ public class JwtProvider {
     }       
 
     public String TokenBuilderByUserName(String username){ 
-        log.info("Generate the Token By user's name");
+        log.info("  '--- TokenBuilderByUserName Generates the Token By user's name");
         return Jwts.builder()
                 .setSubject(username)
                 .setIssuedAt(from(Instant.now()))
@@ -97,9 +97,9 @@ public class JwtProvider {
     }
 
     private PrivateKey getPrivateKey(){
+        log.info("      '--- getPrivateKey");
         try {
             PrivateKey key = (PrivateKey) keyStore.getKey("jwtoauth2", getSecretKey().toCharArray());
-            log.info("** get Pivate Key successfully" + key.toString() );
             return key;
         } catch (UnrecoverableKeyException | KeyStoreException | NoSuchAlgorithmException e) {
             e.printStackTrace();
@@ -109,32 +109,34 @@ public class JwtProvider {
     }
 
     private PublicKey getPublicKey() throws KeyStoreException{
-        log.info("fetch the public key from Certification");
+        log.info("      '--- getPublicKey");
         return keyStore.getCertificate("jwtoauth2").getPublicKey();
     }
 
-    // check the vlidate of the Token used by filter 
+    /** 
+     * Used by filter
+     */ 
     public boolean parserToken(String token){
-        log.info("check/parse the validate of the Token");
+        log.info("      '--- parserToken");
         try {
             Jwts.parser()
-            // check public key correspond to certifiate
-            .setSigningKey(getPublicKey())
-            // check the token from the request payload
-            .parseClaimsJws(token);
-            log.info("** The Token is valid");
+                // check public key correspond to certifiate
+                .setSigningKey(getPublicKey())
+                // check the token from the request payload
+                .parseClaimsJws(token);
+            log.info("          '--- The Token is valid");
             return true;
         } catch (SignatureException | ExpiredJwtException | UnsupportedJwtException | MalformedJwtException
                 | IllegalArgumentException | KeyStoreException e) {
             e.printStackTrace();
-            log.info("** The Token is unvalid");
+            log.info("          '--- The Token is unvalid");
             return false;
         }
         
     }
 
     public String getUserNameFromToken(String Token){
-            log.info("Fetch the user name from JWT");
+            log.info("   '--- getUserNameFromToken");
             try {
                 return Jwts.parser()
                         .setSigningKey(getPublicKey())
@@ -148,6 +150,9 @@ public class JwtProvider {
             }
     }
 
+    /**
+     * Get SecretKey and JwtExpriationInMills
+     */
     public Long getJwtExpirationInMillis(){
         return jwtExpirationInMillis;
     }

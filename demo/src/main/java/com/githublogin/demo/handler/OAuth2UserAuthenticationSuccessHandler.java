@@ -101,13 +101,18 @@ public class OAuth2UserAuthenticationSuccessHandler extends SimpleUrlAuthenticat
         oAuth2Service.processOauth2User(userInfo, email);
     
         clearAuthenticationAttributes(request, response);
+
+        
         getRedirectStrategy().sendRedirect(request, response, targetUrl);
     }
 
 
+    /**
+     * Form A redirect Uri with jwt queryParm
+     */
     protected String determineTargetUrl(HttpServletRequest request, HttpServletResponse response, Authentication authentication) {
-        Optional<String> redirectUri = CookieUtils.getCookie(request, REDIRECT_URI_COOKIE)
-                .map(Cookie::getValue);
+        log.info("  '--- determineTargetUrl ");
+        Optional<String> redirectUri = CookieUtils.getCookie(request, REDIRECT_URI_COOKIE).map(Cookie::getValue);
 
         if(redirectUri.isPresent() && !isAuthorizedRedirectUri(redirectUri.get())) {
             throw new BadRequestException("Sorry! We've got an Unauthorized Redirect URI and can't proceed with the authentication");
@@ -116,8 +121,8 @@ public class OAuth2UserAuthenticationSuccessHandler extends SimpleUrlAuthenticat
         String targetUrl = redirectUri.orElse(getDefaultTargetUrl());
         String token = jwtProvider.TokenBuilderByOauth2User(authentication);
         return UriComponentsBuilder.fromUriString(targetUrl)
-                .queryParam("token", token)
-                .build().toUriString();
+                                   .queryParam("token", token)
+                                   .build().toUriString();
     }
 
     // delete related data taht stored in the session 
@@ -129,7 +134,8 @@ public class OAuth2UserAuthenticationSuccessHandler extends SimpleUrlAuthenticat
     /**
      * Compare uri with registerd ones in properties
      */
-    private boolean isAuthorizedRedirectUri(String uri) {
+    private boolean isAuthorizedRedirectUri(String redirectUri) {
+        log.info(" '--- isAuthorizedRedirecctUri Method");
         /**
         public static URI create(String str) {
             try {
@@ -139,20 +145,20 @@ public class OAuth2UserAuthenticationSuccessHandler extends SimpleUrlAuthenticat
             }
         }       
         */
-        log.info("client uri" + uri);
-        URI clientRedirectUri = URI.create(uri);
+        log.info("      '____Redirect uri that provided by Client" + redirectUri);
+        URI clientRedirectUri = URI.create(redirectUri);
         
         // Check if client login via mobile or computer
         return oAuth2Properties.getAuthorizedRedirectUris()
-                .stream()
-                .anyMatch(authorizedRedirectUri -> {
-                    log.info("authorized uri" + authorizedRedirectUri);
-                    URI authorizedURI = URI.create(authorizedRedirectUri);
-                    if(authorizedURI.getHost().equalsIgnoreCase(clientRedirectUri.getHost())
-                            && authorizedURI.getPort() == clientRedirectUri.getPort()) {
-                        return true;
-                    }
-                    return false;
+                               .stream()
+                               .anyMatch(authorizedRedirectUri -> {
+                                    log.info("      '___ Check if ClientRedirectUrl is legit");
+                                    URI authorizedURI = URI.create(authorizedRedirectUri);
+                                    if(authorizedURI.getHost().equalsIgnoreCase(clientRedirectUri.getHost())
+                                            && authorizedURI.getPort() == clientRedirectUri.getPort()) {
+                                        return true;
+                                    }
+                                return false;
                 });
     }
 }

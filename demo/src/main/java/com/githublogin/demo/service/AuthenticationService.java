@@ -49,31 +49,43 @@ public class AuthenticationService {
     // 2. generate the token 
     // 3. send mail to user to activate the account
     public void signup(RegisterRequest req){
-        User user = new User();
+        log.info("---SingUp Process");
+        User newUser = User.builder()
+                           .username(req.getUsername())
+                           .password(encodePassword(req.getPassword()))
+                           .mail(req.getMail())
+                           .legit(false)
+                           .authProvider(AuthProviderType.LOCAL)
+                           .createdDate(Instant.now())
+                           .build();
+        /*
+        User newUser = new User();
         user.setUsername(req.getUsername());
         user.setPassword(encodePassword(req.getPassword()));
         user.setMail(req.getMail());
-        user.setCreatedDate(Instant.now());
-        
         user.setLegit(false); // The register haven't get VERTICATIONTOKEN
         user.setAuthProvider(AuthProviderType.LOCAL);
-        
-        userRepo.save(user); // Save the user to database
-        log.info("save a new user succesfully");
-        //log.info(user.getMail() + " " + user.getPassword() +  " " + user.getUserName() );
-        
-        
-        String token = generateToken(user); // Create a token via user
-        log.info("Create A Token For A new User" + token);
+        user.setCreatedDate(Instant.now());
+        */
+
+        userRepo.save(newUser); // Save the user to database
+        log.info("  '__ Save a new user succesfully");
+        String token = generateToken(newUser); 
 
         /**
          * Send mail to user to activate token
-         */
-        String body = ("click the URL To activate Your Account \n" + GoTokenPage.url() + token); 
-        String subject = "PttClone Activate Your Account";
-        String recipient = user.getMail();
-        NotificationMail userMail = new NotificationMail(subject, recipient, body);  // Mail Content
-        sendmailService.SendTokenMail(userMail);
+         
+        String body = ("click the URL To activate Your Account : " + GoTokenPage.url() + token); 
+        String subject = "Activate Your Account";
+        String recipient = newUser.getMail();
+        */
+        NotificationMail ActivateMail = NotificationMail.builder()
+                                                        .subject("Activate Your Account")
+                                                        .body("click the URL To activate Your Account : " + GoTokenPage.url() + token)
+                                                        .recipient(newUser.getMail())
+                                                        .build();
+        log.info("  '--- SendMailService sendTokenMail(ActivateMail)");
+        sendmailService.SendTokenMail(ActivateMail);
     }
     
     /**
@@ -91,6 +103,7 @@ public class AuthenticationService {
             String newToken = UUID.randomUUID().toString();
             token.setToken(newToken);
             token.setUser(user);
+            // This token will reference to the specific User
             verificationtokonRepo.save(token);        
             return newToken;
     }
@@ -101,7 +114,7 @@ public class AuthenticationService {
      public void verifyToken(String token){
         VerificationToken verificationtoken = 
             verificationtokonRepo.findByToken(token).orElseThrow(() -> new RuntimeException("Invalid Token"));
-        log.info(verificationtoken.getUser().getUsername());
+        log.info("  '--- " + verificationtoken.getUser().getUsername());
         setUserValid(verificationtoken);
     }
     /**
@@ -112,8 +125,8 @@ public class AuthenticationService {
         User user = userRepo.findByUsername(username).orElseThrow(() -> new RuntimeException ("User not found with name - " + username));;
         user.setLegit(true);
         userRepo.save(user);
+        log.info("       '--- Saving A Legitimate User Successfully");
     }
-
 
     /*
     public LoginResponse login(LoginRequest req){
@@ -126,14 +139,17 @@ public class AuthenticationService {
     }
     */
 
-    
     /**
      * Use jwt to login
      */
     public RefreshTokenResponse login(LoginRequest loginRequest) {
-        log.info("--------------Login Service--------------------");
+        log.info("---login process");
         Authentication authenticate = 
-        authenticationManager.authenticate(new UsernamePasswordAuthenticationToken(loginRequest.getUsername(),loginRequest.getPassword()));
+                    authenticationManager.authenticate(
+                            new UsernamePasswordAuthenticationToken(
+                                        loginRequest.getUsername(),loginRequest.getPassword()
+                            ));
+        
         SecurityContextHolder.getContext().setAuthentication(authenticate);
 
         // Generate jwt 
@@ -141,7 +157,8 @@ public class AuthenticationService {
         return RefreshTokenResponse.builder()
                 .Token(token)
                 .refreshToken(refreshTokenService.generateRefreshToken().getToken())
-                .expiresAt(Instant.now().plusMillis(jwtprovider.getJwtExpirationInMillis()))
+                .expiresAt(Instant.now())
+                //.expiresAt(Instant.now().plusMillis(jwtprovider.getJwtExpirationInMillis()))
                 .username(loginRequest.getUsername())
                 .build();
     }
