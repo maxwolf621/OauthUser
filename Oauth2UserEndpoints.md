@@ -722,15 +722,21 @@ public void sendRedirect(HttpServletRequest request, HttpServletResponse respons
 
 
 
-OAuth2LoginAuthenticationFilter
+[OAuth2LoginAuthenticationFilter](https://zhuanlan.zhihu.com/p/100625981)
+
 [ref](https://www.cnblogs.com/felordcn/p/13992477.html)  
+
 ![image](https://user-images.githubusercontent.com/68631186/122872974-cd07de00-d363-11eb-88a4-67edc7b91d04.png)  
-This filter
-1. Process an Oauth 2.0 Authorization Response (**by intercepting authorization grant code returned by Authorization Server**) 
-2. Generate A Authentication `OAuth2LoginAuthenticationToken` and delegates it to the  `AuthenticationManager` to do a authentication
-3. Creat A valid OAuth2LoginAuthenticationToken and Oauth2AuthorizedClient then return `OAuth2AuthenticationToken` save them in the SecurityContextRepository and OAuth2AuthorizedClientRepository
 ```java
 /**
+ * <p> Process an Oauth 2.0 Authorization Response 
+ * (by intercepting authorization grant code returned by Authorization Server**) </p> 
+ * <p> Generate A Authentication `OAuth2LoginAuthenticationToken` 
+ *     and delegates it to the  `AuthenticationManager` to do a authentication </p>
+ * <p> Creat A valid OAuth2LoginAuthenticationToken and Oauth2AuthorizedClient
+ *      then return `OAuth2AuthenticationToken` save them 
+ *      in the SecurityContextRepository and OAuth2AuthorizedClientRepository </p>
+ * 
  * An implementation of an {@link AbstractAuthenticationProcessingFilter} for OAuth 2.0 Login.
  * This authentication {@code Filter} handles the processing of an OAuth 2.0 Authorization Response 
  *      for the authorization code grant flow 
@@ -843,7 +849,7 @@ public class OAuth2LoginAuthenticationFilter extends AbstractAuthenticationProce
 	}
 }
 ```
-[Reference](https://zhuanlan.zhihu.com/p/100625981)
+
 
 ## Intercept The Oauth2AuthorizationRequest
 ```java
@@ -1035,7 +1041,7 @@ REVIEW of `OAuth2AuhroizationRequest`
 - A representation of an OAuth 2.0 Authorization Request for the authorization code grant type or implicit grant type.
 - [code](https://docs.spring.io/spring-security/site/docs/current/api/org/springframework/security/oauth2/core/endpoint/OAuth2AuthorizationRequest.html)
 
-A custom AuthorizationRequestRepository  
+### A custom AuthorizationRequestRepository  
 ```java
 @EnableWebSecurity
 public class OAuth2ClientSecurityConfig extends WebSecurityConfigurerAdapter {
@@ -1054,7 +1060,7 @@ public class OAuth2ClientSecurityConfig extends WebSecurityConfigurerAdapter {
 }
 ```
 
-Oauth2User has defaultprovider called `CommonOAuth2Provider` to fetch protected resource from google, github, facebook 
+Oauth2User has default provider called `CommonOAuth2Provider` to fetch protected resource from google, github, facebook 
 ```java
 public enum CommonOAuth2Provider {
 
