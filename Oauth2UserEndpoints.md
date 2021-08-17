@@ -5,11 +5,12 @@
 [Attributes of Different Third Parties](https://blog.yorkxin.org/posts/oauth2-implementation-differences-among-famous-sites.html)
 
 
-# Oauth2 User Login Flow
+## Basic Oauth2 User Login Flow via GITHUB
 [How to Login](https://medium.com/swlh/spring-boot-oauth2-login-with-github-88b178e0c004)  
 [code](https://github.com/maxwolf621/OauthUser/tree/main/demo)  
+
 Oauth2 Client Setup in Maven  
-```
+```xml
 <dependency>
   <groupId>org.springframework.boot</groupId>
   <artifactId>spring-boot-starter-oauth2-client</artifactId>
@@ -17,14 +18,16 @@ Oauth2 Client Setup in Maven
 ```
 
 Add client registration details in application.properties
-```
+```diff
 spring.security.oauth2.client.registration.github.client-id= ...
 spring.security.oauth2.client.registration.github.client-secret= ...
 spring.security.oauth2.client.registration.github.redirect-uri= ...
 ```
 
-Configure spring boot web security  
+## Configure spring boot web security for OAuth2  
+
 [Configure the authorization of the ROLE](https://stackoverflow.com/questions/36233910/custom-http-security-configuration-along-with-oauth2-resource-server)
+
 ```java
 @EnableWebSecurity
 public class SecurityConfig extends WebSecurityConfigurerAdapter{
@@ -39,24 +42,25 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter{
     }
 }
 ```
-Run `mvn spring boot:run`
-Now by accessing default host `localhost:8080` it will direct to the Authorized Endpoint (login page of the thrid party application) 
+Run `mvn spring boot:run`  
+Now by accessing default host `localhost:8080` it will direct to the AuthorizedEndpoint (login page of the thrid party application) 
 
-After the user entered the password and the email, it might have two resuts
-1. it fails then it redirects to: http://localhost:8080/oauth2/authorization/github
-2. it successes then the request (sent by client) is getting handled by `OAuth2AuthorizationRequestRedirectFilter`
+After the user entered the password and the email, it might have two results
+1. It failed then it redirects to `http://localhost:8080/oauth2/authorization/github`
+
+2. It successed then the request (sent by client) is getting handled by `OAuth2AuthorizationRequestRedirectFilter`
 Internally, this , which uses implements doFilterInternal that matches against the `/oauth2/authorization/github` URI and redirect the request to
-```
+```http
 https://github.com/login/oauth/authorize?response_type=code&client_id=<clientId>&scope=read:user&state=<state>&redirect_uri=http://localhost:8080/login/oauth2/code/github
 ```
-- the above (rediretion endpoint) `redirect_uri` contains the same value we put when we registered our `application.properties`.  
+- the above (redirected endpoint) `redirect_uri` contains the same value we put when we registered our `application.properties`.  
 
-After we successfully authenticate against GitHub, the user will be redirected to (default) `http://localhost:8080/login/oauth2/code/github` with the authentication code in the request parameters.  
+After the User successfully authenticates against GitHub, the user will be redirected to (default) `http://localhost:8080/login/oauth2/code/github` with the authentication code in the request parameters.  
 This will be handled by the `OAuth2LoginAuthenticationFilter`, which will perform a POST request to the GitHub API to get an authentication token.
 
 
-- 使用者訪問Client之後，Client會將The User導向Provider，Provider向The User詢問是否對 Client 授權  
-- 使用者同意授權後(成功登入第三方帳戶)，Provider 向 Client 返回一個Code。
+- 使用者訪問Client端之後，Client會將The User導向Provider，Provider向The User詢問是否對 Client 授權 
+- 使用者同意授權後(同意授權的意思就是The USER成功登入第三方帳戶)，Provider向Client返回一個Authorization Code。
 - Client再用Authorization Code申請Access Token
 - Provider _Authenticates_ Authorization Code後responses _Access Token_
 - Client sends Token Aces使用者在 Provider 上的資源
