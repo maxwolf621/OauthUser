@@ -9,7 +9,22 @@
 [How to Login](https://medium.com/swlh/spring-boot-oauth2-login-with-github-88b178e0c004)  
 [code](https://github.com/maxwolf621/OauthUser/tree/main/demo)  
 
-Oauth2 Client Setup in Maven  
+### FLOW
+```diff
+User         Client         Provider
+ '-----1-------+-------------->+
+               +<------2-------'
+	       '-------3------>+
+	       +<------4-------'
+	       '-------5-------+
+```
+1. `User`訪問`Client`之後，`Client`會`User`導向`Provider`(e.g. GITHUB, ...)，`Provider`向`User`詢問是否對`Client`授權(LoginPage) 
+2. 使用者同意授權後(同意授權的意思就是`USER`成功登入`Provider`帳戶)，Provider向`Client`內的`Spring API`返回一個Authorization Code  
+3. `Client`內的`Spring API`會用Authorization Code像`Provider`申請Access Token
+4. `Provider` _Authenticates_ Authorization Code後responses _Access Token_
+5. `Client`內的`Spring API`呼叫UserInfo-AP並用Access Token存取`Provider`上的資源
+
+### Oauth2 Setup in Maven  
 ```xml
 <dependency>
   <groupId>org.springframework.boot</groupId>
@@ -17,14 +32,14 @@ Oauth2 Client Setup in Maven
 </dependency>
 ```
 
-Add client registration details in application.properties
+### Add client-registration details in `application.properties`
 ```diff
 spring.security.oauth2.client.registration.github.client-id= ...
 spring.security.oauth2.client.registration.github.client-secret= ...
 spring.security.oauth2.client.registration.github.redirect-uri= ...
 ```
 
-## Configure spring boot web security for OAuth2  
+### Configure spring boot web security for OAuth2  
 
 [Configure the authorization of the ROLE](https://stackoverflow.com/questions/36233910/custom-http-security-configuration-along-with-oauth2-resource-server)
 
@@ -43,27 +58,27 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter{
 }
 ```
 Run `mvn spring boot:run`  
+
 Now by accessing default host `localhost:8080` it will direct to the AuthorizedEndpoint (login page of the thrid party application) 
 
 After the user entered the password and the email, it might have two results
 1. It failed then it redirects to `http://localhost:8080/oauth2/authorization/github`
 
 2. It successed then the request (sent by client) is getting handled by `OAuth2AuthorizationRequestRedirectFilter`
-Internally, this , which uses implements doFilterInternal that matches against the `/oauth2/authorization/github` URI and redirect the request to
-```http
-https://github.com/login/oauth/authorize?response_type=code&client_id=<clientId>&scope=read:user&state=<state>&redirect_uri=http://localhost:8080/login/oauth2/code/github
+
+Internally the implementation which implements `doFilterInternal` that matches against the `/oauth2/authorization/github` URI and redirect the request to
+```diff
++ https://github.com/login/oauth/authorize?
+- response_type=code&
+- client_id=<clientId>&
+- scope=read:user&state=<state>&
+- redirect_uri=http://localhost:8080/login/oauth2/code/github
 ```
-- the above (redirected endpoint) `redirect_uri` contains the same value we put when we registered our `application.properties`.  
+- `redirect_uri` is same as the one we registered our `application.properties`.  
 
 After the User successfully authenticates against GitHub, the user will be redirected to (default) `http://localhost:8080/login/oauth2/code/github` with the authentication code in the request parameters.  
-This will be handled by the `OAuth2LoginAuthenticationFilter`, which will perform a POST request to the GitHub API to get an authentication token.
-
-
-- 使用者訪問Client端之後，Client會將The User導向Provider，Provider向The User詢問是否對 Client 授權 
-- 使用者同意授權後(同意授權的意思就是The USER成功登入第三方帳戶)，Provider向Client返回一個Authorization Code。
-- Client再用Authorization Code申請Access Token
-- Provider _Authenticates_ Authorization Code後responses _Access Token_
-- Client sends Token Aces使用者在 Provider 上的資源
+This will be handled by the `OAuth2LoginAuthenticationFilter`, which will perform a `POST` request to the GitHub API to get an Access Token.  
+With AccessToken the Spring API calls implementation (e.g `Oauth2User` ) to access resource of Provider  
 
 
 # Endpoints
@@ -74,58 +89,58 @@ This will be handled by the `OAuth2LoginAuthenticationFilter`, which will perfor
 - Token Endpoint作為Authorization Server發行Access Token
 
 
+## FLOW of client fetchs the thirdparty resoruces
+```diff
+		     +----------+
+		     | Resource |
+		     |   Owner  |
+		     +----------+
+			  ^
+			  |
+			 (B)
+			  |
+-		     +----|-----+          Client Identifier      +---------------+
+-		     |          |>---(A)-- & Redirection URI ---->|               |
+		     |  User-   |                                 | Authorization |
+		     |  Agent   |>---(B)-- User authenticates --->|     Server    |
+		     |          |                                 |               |
+		     |          |<---(C)-- Authorization Code ---<|               |
+		     +-|----|---+                                 +---------------+
+		       |    |                                         ^      v
+		      (A)  (C)                                        |      |
+		       |    |                                         |      |
+		       ^    v                                         |      |
+		     +---------+                                      |      |
+	+-----+	     |         |>---(D)-- Authorization Code ---------'      |
+	|user |-(.)->|  Client |          & Redirection URI                  |
+	+-----+	     |         |                                             |
+		     |         |<---(E)----- Access Token -------------------'
+		     +---------+       (w/ Optional Refresh Token)
+```
 
-## How The User get third party application's protected Resource via Client
-```
-	     +----------+
-	     | Resource |
-	     |   Owner  |
-	     +----------+
-		  ^
-		  |
-		 (B)
-		  |
-	     +----|-----+          Client Identifier      +---------------+
-	     |          |>---(A)-- & Redirection URI ---->|               |
-	     |  User-   |                                 | Authorization |
-	     |  Agent   |>---(B)-- User authenticates --->|     Server    |
-	     |          |                                 |               |
-	     |          |<---(C)-- Authorization Code ---<|               |
-	     +-|----|---+                                 +---------------+
-	       |    |                                         ^      v
-	      (A)  (C)                                        |      |
-	       |    |                                         |      |
-	       ^    v                                         |      |
-	     +---------+                                      |      |
-+-----+	     |         |>---(D)-- Authorization Code ---------'      |
-|user |-(.)->|  Client |          & Redirection URI                  |
-+-----+	     |         |                                             |
-	     |         |<---(E)----- Access Token -------------------'
-	     +---------+       (w/ Optional Refresh Token)
-```
 
 [Ref](https://stackoverflow.com/questions/12482070/how-does-a-user-register-with-oauth)   
 - Resource Owner (Your third party application Account)  
-- Client app (The Application you are currently using)  
+- Client (The Application you are currently using)  
 - Identity Provider (Third Party Application authenticates the identity : Google, Facebook, Twitter, etc...)  
 - Resource Server (Third Party Application's Server, e.g. Authorization Server, Resource Server, etc ... )  
 - Resources (Resource in third party application that you are trying to access via the client)  
 
-[Auth Code Grant Flow](https://blog.yorkxin.org/posts/oauth2-4-1-auth-code-grant-flow.html) 
-- (.) The User Accesses The Client ( The Application ) 
-- (A) The client initiates the flow by directing the resource owner's **user-agent to the authorization endpoint**. 
-	> The client includes its client identifier, requested `scope`, local `state`, and a `redirect_uri` to which the authorization server will send the user-agent back once the user granted (or denied) the access (to the third party account) via Client.  
-- (B) The authorization server authenticates the resource owner (via the user-agent) and **establishes** whether the resource owner grants or denies the client's access request.  
-- (C) Assuming the resource owner grants access, the authorization server redirects the user-agent back to the client using the `redirect_uri` provided earlier.  
-     - The redirection URI includes an `authorization code` and any local `state` provided by the client earlier 
-     > For example   
-     >> accounts.google.com/o/oauth2/v2/auth?`response_type`=code&`client_id`=150677252870-78tlj6v2mm653alhodqr9t5br5fu5bs0.apps.googleusercontent.com&`scope`=openid+profile+email&`state`=QFWkpSxvN-zs5gGoMCnFGDJDTYF1HZg1FC_5l31H0qg%3D&`redirect_uri`=http%3A%2F%2Flocalhost%3A8080%2Flogin%2Foauth2%2Fcode%2Fgoogle.
+[Auth Code Grant Flow](https://blog.yorkxin.org/posts/oauth2-4-1-auth-code-grant-flow.html)   
+- (.) The User Accesses The Client (The Application ) 
+- (A) The client initiates the flow by directing the resource owner's **user-agent to the authorization endpoint**.
+  > The client includes its _1.client identifier_, _2.requested `scope`_, _3.local `state`_, and _4.a `redirect_uri` to which the authorization server will send the user-agent back once the user granted (or denied) the access (to the third party account)_
+- (B) **(YOU LOGIN SUCCESSFULLY IN 3RD PARTY ACCOUNT)** The authorization server authenticates the resource owner (via the user-agent) and **establishes** whether the resource owner grants or denies the client's access request.  
+- (C) Assuming the resource owner grants access, the authorization server redirects the user-agent back to the client using the `redirect_uri` provided earlier. 
+  > The redirection URI includes an `authorization code` and any local `state` provided by the client earlier   
+  > For example    
+  >`accounts.google.com/o/oauth2/v2/auth?`response_type`=code&`client_id`=150677252870-78tlj6v2mm653alhodqr9t5br5fu5bs0.apps.googleusercontent.com&`scope`=openid+profile+email&`state`=QFWkpSxvN-zs5gGoMCnFGDJDTYF1HZg1FC_5l31H0qg%3D&`redirect_uri`=http%3A%2F%2Flocalhost%3A8080%2Flogin%2Foauth2%2Fcode%2Fgoogle.`
 - (D) The client requests an access token from the authorization server's token endpoint by including the authorization code received in the previous step. 
 - (E) The authorization server authenticates the client, validates the authorization code, and ensures that the redirection URI received matches the URI used to redirect the client in step (C). **If valid, the authorization server responds back with an access token and, optionally, a refresh token.**  
 
 # Configure The OAuth2 Client
 
-To define the Client ( The Application ) have the authorization to fetch the protected resource from the third party application
+To define the Client (the Application) have the authorization to fetch the protected resource from the third party application
 ```java
 @EnableWebSecurity
 public class OAuth2ClientSecurityConfig extends WebSecurityConfigurerAdapter {
@@ -141,25 +156,26 @@ public class OAuth2ClientSecurityConfig extends WebSecurityConfigurerAdapter {
     }
 }
 ```
-## (INFORMATION) Client Registration
 - We can configure client registration via `java configuration` or `application.properties`  
 
+### Client Registration
 A client registration holds these (The Most Important) information  
+```diff
+- client id 	
+- client secret
+- authorization grant type 
+- scope(s) 
++ redirect URI 
++ authorization URI
++ token URI
 ```
-client id 	
-client secret
-authorization grant type 
-scope(s) 
 
-redirect URI 
-authorization URI
-token URI
-```
+## (GET CLIENT REGISTRAION INFORMATION) `ClientRegistrationRepository`
 
-## (GET CLIENT REGISTRAION INFORMATION) ClientRegistrationRepository
 **This repository provides the ability to retrieve a sub-set of the primary client registration information, which is stored with the Authorization Server.**
 
-> Spring Boot 2.x auto-configuration binds each of the properties under `spring.security.oauth2.client.registration.[registrationId]` to an instance of ClientRegistration and then composes each of the `ClientRegistration` instance(s) within a `ClientRegistrationRepository`. [EXAMPLE CODE HERE](https://www.baeldung.com/spring-security-5-oauth2-login)  
+- Spring Boot 2.x auto-configuration binds each of the properties under `spring.security.oauth2.client.registration.[registrationId]` to an instance of `ClientRegistration` and then composes each of the `ClientRegistration` instance(s) within a `ClientRegistrationRepository`. 
+  > [EXAMPLE CODE HERE](https://www.baeldung.com/spring-security-5-oauth2-login)  
 
 Using Java Configuration Instead of application properties 
 ```java
@@ -183,29 +199,33 @@ public class OAuth2ClientController {
 ```
 
 ## (THE AUTHORIZATION) `OAuth2AuthorizedClientProvider`
-A strategy for authorizing (or re-authorizing) an OAuth 2.0 Client (The Applciation that The user are currently using)  
-- `ClientRegistration` is a representation of a client registered with an OAuth 2.0 or OpenID Connect 1.0 Provider.
-- `OAuth2AuthorizedClient` is a representation of an Authorized Client.
-   > For an Oauth2 Authorized provider must provide these two to authenticate
+A strategy for authorizing (or re-authorizing) **an OAuth 2.0 Client (The Applciation that The user are currently using)**  
 
-```
+- For an Oauth2 Authorized provider must provide these two to authenticate
+  > `ClientRegistration` is a representation of a client registered with an OAuth 2.0 or OpenID Connect 1.0 Provider.  
+  > `OAuth2AuthorizedClient` is a representation of an Authorized Client.
+ 
+
+```diff
 Provider
- '--- via Oauth2AccessToken 
-      '-----> OAuth2AuthorizedClientService ---> OAuth2AuthorizedClientRepository
-	    					   '--- OAuth2AuthorizedClient
+'-Oauth2AccessToken 
+  '--> OAuth2AuthorizedClientService 
+       '->OAuth2AuthorizedClientRepository
+	  '--->OAuth2AuthorizedClient
 ```
-- `Oauth2AuthrizedClientProvider` delegats the persistence of an `OAuth2AuthorizedClient`, typically using an `OAuth2AuthorizedClientService` or `OAuth2AuthorizedClientRepository` provides lookup associated with the `clientOAuth2AccessToken`  
-	> [Example](https://www.programmersought.com/article/10451235590/)  
+- `Oauth2AuthorizedClientProvider` delegats the persistence of an `OAuth2AuthorizedClient`, typically using an `OAuth2AuthorizedClientService` or `OAuth2AuthorizedClientRepository` provides lookup associated with the `clientOAuth2AccessToken`  
+   > [`Oauth2AuthorizedClientProvider` Example](https://www.programmersought.com/article/10451235590/)  
 
-##### REVIEW of The Authentication
+#### REVIEW of The Authentication
+
 The Authentication Process In Spring Security
-```
-xxx_Manager is based on xxx_Provider via xxx_ProviderBuilder to build it
 
-xxx_Provider is based on the xxx_Repositories
+```diff
+- xxxManager is based on xxxProvider via xxxProviderBuilder to build it
++ xxxProvider is based on the xxxRepository
 ```
 
-### Class OAuth2AuthorizedClient 
+### `OAuth2AuthorizedClient`
 
 For **a client is considered to be authorized** when the end-user/Resource Owner has granted authorization to the client to access its protected resources.
 ```java
@@ -235,7 +255,7 @@ public class OAuth2AuthorizedClient implements Serializable {
  // ....
 ```
 
-### Class OAuth2AccessToken
+### `OAuth2AccessToken`
 ```java
 public class OAuth2AccessToken extends AbstractOAuth2Token {	 
 	 /**
@@ -262,7 +282,7 @@ public class OAuth2AccessToken extends AbstractOAuth2Token {
 	
 	//...
 ```
-### Class AuthorizedCientManager 
+### `AuthorizedCientManager`
 
 The default implementation of `OAuth2AuthorizedClientManager` is `DefaultOAuth2AuthorizedClientManager`, which is associated with an `OAuth2AuthorizedClientProvider` that may support multiple authorization grant types using a delegation-based composite. 
 
@@ -273,15 +293,15 @@ Build Up the Custom OAuth2 Authorized Client Manager
 ```java
 @Bean
 public OAuth2AuthorizedClientManager authorizedClientManager(
-	/*Which Third Party Application*/
+	
+	/*Third Party Application*/
 	ClientRegistrationRepository clientRegistrationRepository,
 	/*Get A Authorized Client*/
 	OAuth2AuthorizedClientRepository authorizedClientRepository) 
-	{
 
-	/*******
+	/**
 	 * Building/Configuring A Custom Oauth2AuthroizedClientProvider 
-	 * 		要求使用者需要遞交哪些資料作為認證
+	 * 要求使用者需要遞交哪些資料作為認證
 	 */
 	OAuth2AuthorizedClientProvider authorizedClientProvider =
 	    OAuth2AuthorizedClientProviderBuilder.builder()
@@ -353,9 +373,9 @@ private Function <OAuth2AuthorizeRequest, Map<String, Object> > contextAttribute
 }   
 ```
 
-### AuthorizedClientServiceOAuth2AuthorizedClientManager
+### `AuthorizedClientServiceOAuth2AuthorizedClientManager`
 
-When operating data outside of a HttpServletRequest context(e.g clientRegistrationId, principal name ...etc), use `AuthorizedClientServiceOAuth2AuthorizedClientManager` instead. 
+When operating data outside of a `HttpServletRequest` context(e.g `clientRegistrationId`, principal name ...etc), use `AuthorizedClientServiceOAuth2AuthorizedClientManager` instead. 
 > [AuthorizedClientServiceOAuth2AuthorizedClientManager and DefaultOAuth2AuthorizedClientManager](https://stackoverflow.com/questions/67500742/what-is-the-difference-between-defaultoauth2authorizedclientmanager-and-authoriz)  
 
 For Example
@@ -384,30 +404,22 @@ public OAuth2AuthorizedClientManager authorizedClientManager(
 }
 ```
 
-# Oauth2User Filter  
+# Filter For Oauth2User  
+
 There are two important filters
-1. Oauth2AuthorizationRequestRedirectFilter (If the grant is valid then we goes the next filter `OAuth2LoginAuthenticationFilter`)
-2. Oauth2LoginAuthenticationFilter
+1. `Oauth2AuthorizationRequestRedirectFilter` (If the grant is valid then we goes the next filter `OAuth2LoginAuthenticationFilter`)
+2. `Oauth2LoginAuthenticationFilter`
 
 #### `OAuth2AuthorizationRequestRedirectFilter` handles for 
-- When user clicks login via third party application in the client/application, `then OAuth2AuthorizationRequestRedirectFilter` will _resolve_ this request.
-	> The request contains `client_id`、`scope` and `state` to form a `redirect_url` and redirect to third party authorized's url (github登入頁面)
 
-#### `OAuth2LoginAuthenticationFilter` handles for
+When user clicks login via third party application in the client/application, then `OAuth2AuthorizationRequestRedirectFilter` will _resolve_ this request
 
-- (If the user grants the client can fetch resource from third party applocation ) This filter will add `Authorized Grant Code`, `state` ...etc ... parameters in the `redirect_url` 
-	> `Oauth2LoginAuthenticationFilter` checks the grant code and state if they are valid then it returns access_token
-- Parse the `redirect_url` `Authorized Grant Code` and `state` with the ones stored in the client's session.
-	> if it is valid then it returns `access_token` url (so client can use this acces token to access third party resource)
-- Client uses access token and Oauth2UserService to get third party protected resource and then return instance of Authenttication 
-- `SecurityContextPersistenceFilter` will store protected resource in the local http session  (local endpoint) after that
+- The request contains `client_id`、`scope` and `state` to form a `redirect_url` and redirect to third party authorized's url for asking the grant from resource  owner (redirect第三方登入頁面允許resource onwer授權)
 
-## OAuth2AuthorizationRequestRedirectFilter 
-[Oauth2 Filter Code](https://www.gushiciku.cn/pl/pnSK/zh-/tw)  
+[Oauth2 Filter Code](https://www.gushiciku.cn/pl/pnSK/zh-/tw)   
 
-The `OAuth2AuthorizationRequestRedirectFilter` uses 
-1. an `OAuth2AuthorizationRequestResolver` to resolve an `OAuth2AuthorizationRequest` 
-2. and **initiate the Authorization Code grant flow by redirecting the end-user’s user-agent to the Authorization Server’s Authorization Endpoint**.
+1. The `OAuth2AuthorizationRequestRedirectFilter` uses an `OAuth2AuthorizationRequestResolver` to **RESOLVE**/build up `HttpServletRequest` an `OAuth2AuthorizationRequest` 
+2. **Initiate the Authorization Code grant flow by redirecting the end-user’s user-agent to the Authorization Server’s Authorization Endpoint**.
 
 ```java
 public class OAuth2AuthorizationRequestRedirectFilter extends OncePerRequestFilter {
@@ -429,14 +441,18 @@ public class OAuth2AuthorizationRequestRedirectFilter extends OncePerRequestFilt
     //...
 }
 ```
-If the grant is valid then we goes the next filter `OAuth2LoginAuthenticationFilter`  
+- If the grant is valid then we goes the next filter `OAuth2LoginAuthenticationFilter`  
 
 ### Resolver
-The default implementation `DefaultOAuth2AuthorizationRequestResolver` matches on the (default) path `/oauth2/authorization/{registrationId}` extracting the `registrationId` (from class `ClientRegistration`) and using it to build the `OAuth2AuthorizationRequest` for the associated ClientRegistration.  
+The default implementation `DefaultOAuth2AuthorizationRequestResolver` matches on the (default) path `/oauth2/authorization/{registrationId}` extracting the `registrationId` (from class `ClientRegistration`) and using it to build the `OAuth2AuthorizationRequest` for the associated `ClientRegistration`.  
+- **`DefaultOAuth2AuthorizationRequestResolver` determines to** give a grant or not and then return instance of the `AuthorizaionRequest` to filter.
 
-**`DefaultOAuth2AuthorizationRequestResolver` determines to**
-1. give a grant or not 
-2. and then return instance of the `AuthorizaionRequest` to filter.
+```diff
+DefaultOAuth2AuthorizationRequestResolver
+'--extract registrationId from /oauth2/authorization/{registrationId}
+   '--use registrationId build Oauth2AuthorizationRequest
+```
+
 
 ```java
 //Returns the OAuth2AuthorizationRequest resolved from the provided HttpServletRequest or null if not available.
@@ -452,24 +468,27 @@ void setAuthorizationRequestCustomizer(java.util.function.Consumer<OAuth2Authori
  *  resolve request to AuthorizaionRequest
  */
 private OAuth2AuthorizationRequest resolve(HttpServletRequest request, String registrationId, String redirectUriAction) {
+	
 	if (registrationId == null) {
 		return null;
 	}
 	
-	// Find if the Client is registered or not  
+	// Find if the Client(OUR SPRING APPLICATION) is registered on third party application or not  
 	ClientRegistration clientRegistration = this.clientRegistrationRepository.findByRegistrationId(registrationId);
 	if (clientRegistration == null) {
+	
 		throw new IllegalArgumentException("Invalid Client Registration with Id: " + registrationId);
 	}
 	
-	// Create Oauth2AuthorizationRequest's extra attributes via clientRegistration and attributes in httpservletrequest
+	// Create Oauth2AuthorizationRequest's extra attributes 
+	// via clientRegistration and attributes in httpservletrequest
 	Map<String, Object> attributes = new HashMap<>();
 	
 	attributes.put(OAuth2ParameterNames.REGISTRATION_ID, clientRegistration.getRegistrationId());
 	OAuth2AuthorizationRequest.Builder builder = getBuilder(clientRegistration, attributes);
 
-	//** Expand ReirectUri for redirect endpoint
-	//*  ( the one in client registration + each attributes in requqest )
+	//Expand ReirectUri for redirect endpoint
+	//( the one in client registration + each attributes in requqest )
 	String redirectUriStr = expandRedirectUri(request, clientRegistration, redirectUriAction);
 
 
@@ -480,39 +499,46 @@ private OAuth2AuthorizationRequest resolve(HttpServletRequest request, String re
 			.redirectUri(redirectUriStr) 	  // redirect endpoint (with scope, state) to the user 
 			.scopes(clientRegistration.getScopes())
 			.state(this.stateGenerator.generateKey())
-			.attributes(attributes); //  attributes ( registration id, ... etc ...)
+			.attributes(attributes);          //  attributes ( registration id, ... etc ...)
 	
 	this.authorizationRequestCustomizer.accept(builder);
 	return builder.build();
 }
 ```
-#### Generate Expand Redire URI (URI from ClientREgistration + URI from HttpServletRequest's Attributes)
+
+#### `expandRedirectUri`
+
+Generate Expand Redirect URI (URI from `ClientREgistration` + URI from `HttpServletRequest`'s Attributes)
 
 ![image](https://user-images.githubusercontent.com/68631186/122837983-a7f57a00-d327-11eb-91c6-beef66472fd6.png)
 ```java 
 /**
  * Expands the {@link ClientRegistration#getRedirectUri()} with following provided variables:
- * - baseUrl (e.g. https://localhost/app) 
- * - baseScheme (e.g. https) 
- * - baseHost (e.g. localhost) 
- * - basePort (e.g. :8080) 
- * - basePath (e.g. /app) 
- * - registrationId (e.g. google, facebook, github) 
- * - action (e.g. login) 
- * - Null variables are provided as empty strings.
- ---------------------------------------------
- * Default redirectUri is: {@code org.springframework.security.config.oauth2.client.CommonOAuth2Provider#DEFAULT_REDIRECT_URL}
+ * <li> baseUrl (e.g. https://localhost/app)            </li>
+ * <li> baseScheme (e.g. https)                         </li>      
+ * <li> baseHost (e.g. localhost)                       </li>
+ * <li> basePort (e.g. :8080)                           </li>       
+ * <li> basePath (e.g. /app)                            </li> 
+ * <li> registrationId (e.g. google, facebook, github)  </li> 
+ * <li> action (e.g. login)                             </li>
+ * <li> Null variables are provided as empty string
+ * Default redirectUri is: 
+ * {@code org.springframework.security.config.oauth2.client.CommonOAuth2Provider#DEFAULT_REDIRECT_URL}
  */
-private static String expandRedirectUri(HttpServletRequest request, ClientRegistration clientRegistration,
-		String action) {
-	/* chiletRegistration : get our default reditrect uri */
-	/* request : get the attributes we need to exapnd to default redirecturi*/
+private static String expandRedirectUri(HttpServletRequest request, 
+                                        ClientRegistration clientRegistration,
+					String action) {
+	
+	/**
+	  clientRegistration : Get default reditrect uri 
+	  request : Get the attributes we need for exapnding default redirecturi that fetched from clientRegistration
+	  */
+
 
         // Map<String,Strig> attributes from httpServletrequest and clientRegistration
 	Map<String, String> uriVariables = new HashMap<>();
 	uriVariables.put("registrationId", clientRegistration.getRegistrationId());
 	
-
 	// using class `UriComponents` helps us get Attibutes in the httpservletrequest
 	UriComponents uriComponents = UriComponentsBuilder.fromHttpUrl(UrlUtils.buildFullRequestUrl(request))
 			.replacePath(request.getContextPath())
@@ -605,7 +631,6 @@ public interface HttpServletRequest extends ServletRequest {
 
 public class HttpUtils {
    /**
-     *
      * Reconstructs the URL the client used to make the request,
      * using information in the <code>HttpServletRequest</code> object.
      * The returned URL contains a protocol, server name, port
@@ -684,7 +709,20 @@ public void sendRedirect(HttpServletRequest request, HttpServletResponse respons
 }
 ```
 
-## OAuth2LoginAuthenticationFilter
+## `OAuth2LoginAuthenticationFilter` handles for
+
+1. If the user grants the client can fetch his resource from third party applocation,then this filter will add Authorized Grant Code, state ...etc in the `redirect_url`  
+
+2. Parse the `redirect_url`, `Authorized Grant Code` and `state` with the ones stored in the client's session (client here is our spring application)
+  > If they are valid then the filter returns `access_token` url 
+
+3. Client uses access token and calls (its spring api) `Oauth2UserService` to get third party protected resource for returning instance of `Authenttication` 
+
+4. `SecurityContextPersistenceFilter` will store protected resource in the local http session  (local endpoint) after that
+
+
+
+OAuth2LoginAuthenticationFilter
 [ref](https://www.cnblogs.com/felordcn/p/13992477.html)  
 ![image](https://user-images.githubusercontent.com/68631186/122872974-cd07de00-d363-11eb-88a4-67edc7b91d04.png)  
 This filter
