@@ -1178,9 +1178,9 @@ public enum CommonOAuth2Provider {
 }
 ```
 
-## Oauth2 Authentication Introspecter
+## Oauth2 Authentication Introspecter to form valid `Oauth2AuthenticatedPrincipal`
 
-It decodes String tokens into validated instances of `OAuth2AuthenticatedPrincipal`
+It decodes `String` tokens into validated instances of `OAuth2AuthenticatedPrincipal`
 
 The deafult `QpaueTokenIntrospector` exposes itself as a bean to be injected
 ```java
@@ -1190,14 +1190,19 @@ public OpaqueTokenIntrospector introspector() {
 }
 ```
 
-Or creating a custom introspector (e.g. Extracting Authorities Manually) ...
+### Custom Introspector
+
+creating a custom introspector (e.g. Extracting Authorities Manually) ...
 ```java
 public class CustomAuthoritiesOpaqueTokenIntrospector implements OpaqueTokenIntrospector {
     private OpaqueTokenIntrospector delegate =
             new NimbusOpaqueTokenIntrospector("https://idp.example.org/introspect", "client", "secret");
 
+    
     public OAuth2AuthenticatedPrincipal introspect(String token) {
+        // Decode the String Token to a valid Oauth2AuthenticatedPrincipal
         OAuth2AuthenticatedPrincipal principal = this.delegate.introspect(token);
+	
         return new DefaultOAuth2AuthenticatedPrincipal(
                 principal.getName(), principal.getAttributes(), extractAuthorities(principal));
     }
@@ -1205,8 +1210,8 @@ public class CustomAuthoritiesOpaqueTokenIntrospector implements OpaqueTokenIntr
     private Collection<GrantedAuthority> extractAuthorities(OAuth2AuthenticatedPrincipal principal) {
         List<String> scopes = principal.getAttribute(OAuth2IntrospectionClaimNames.SCOPE);
         return scopes.stream()
-                .map(SimpleGrantedAuthority::new)
-                .collect(Collectors.toList());
+                     .map(SimpleGrantedAuthority::new)
+                     .collect(Collectors.toList());
     }
 }
 ```
@@ -1217,301 +1222,10 @@ public OpaqueTokenIntrospector introspector() {
     return new CustomAuthoritiesOpaqueTokenIntrospector();
 }
 ```
-
 A custom introspector can 
 - use `RestOperations` to configuring timeout
-- create custom `JWTOpaueTokenIntrospecto`r by implementing `OpaqueTokenIntrospector`
+- create custom `JWTOpaueTokenIntrospector` by implementing `OpaqueTokenIntrospector`
 
-# OAuth 2.0 Login Custom  Configuration
 
-```java
-@EnableWebSecurity
-public class OAuth2LoginSecurityConfig extends WebSecurityConfigurerAdapter {
 
-	@Override
-	protected void configure(HttpSecurity http) throws Exception {
-		http
-			.oauth2Login()
-				.authorizationEndpoint() /*login pager*/
-					//...
-				.redirectionEndpoint()
-					//...
-				.tokenEndpoint()
-					//...
-				.userInfoEndpoint()
-					//...
-	}
-}
-```
 
-REVEIW
-- Authorization Endpoint: **Used by the client** to obtain authorization from the resource owner via user-agent redirection. 
-- Token Endpoint: **Used by the client** to exchange an authorization grant for an access token, typically with client authentication. 
-- Redirection Endpoint: **Used by the authorization** server to return responses containing authorization credentials to the client via the resource owner user-agent. 
-- The UserInfo Endpoint : is an OAuth 2.0 Protected Resource that returns claims about the authenticated end-user (**Instance of Authentication**). 
-  > The client makes a request to the UserInfo Endpoint by using an access token obtained through OpenID Connect Authentication (Authorization Server). 
-  > These claims are normally represented by a JSON object that contains a collection of name-value pairs for the claims.
-
-
-### A Custom Oauth2 Login Flow
- 
-1.The OAuth2 login flow will be initiated by the frontend client by sending the user to the endpoint 
- 	> `http://localhost:8080/oauth2/authorize/{provider}?redirect_uri=<redirect_uri_after_login>`.
-	> The `{provider}` path parameter is one of google,github or other third party application. 
-	> The `redirect_uri` is the URI to which the user will be redirected once the authentication with the OAuth2 provider is successful(login from third party application).
-
-2. On receiving the Oauth2authorized Request object, Spring Security’s client will redirect the user to the (Authorized Endpoint) AuthorizationUrl of the supplied provider(**the login page**).
-
-3. All the state (attribute from httpservletRequest) associated/related to the authorization request is saved using the `authorizationRequestRepository` specified in the SecurityConfig.
-
-4. The user(you) now allows/denies permission to your app on the provider’s page. 
-	> If the user allows permission to the app(allowing to use third party account to login the app),   
-	> the provider will redirect the user to the callback url `http://localhost:8080/oauth2/callback/{provider}` with an authorization code.
-	> If the user denies the permission, he/her will be redirected to the same callbackUrl but with an `error` (more details on filter chapter).
-
-5. If the OAuth2 callback results in an error, Spring security will invoke the `oAuth2AuthenticationFailureHandler` specified in the above SecurityConfig.
-5. If the OAuth2 callback is successful and it contains the authorization code, Spring Security will exchange the authorization_code for an access_token and invoke the `customOAuth2UserService` specified in the the (httpScurity) SecurityConfig.
-
-6. The customOAuth2UserService retrieves the details of the authenticated user and creates a new entry in the database or updates the existing entry with the same email.
-
-7. Upon a successful authentication, the `oAuth2AuthenticationSuccessHandler` is invoked. 
-	>It creates a JWT authentication token for the user and sends the user to the `redirect_uri` along with the JWT token in a query string.
-
-
-## Customizing Login Page
-
-To override the default login page, configure oauth2Login().loginPage() and (optionally) oauth2Login().authorizationEndpoint().baseUri().
-```java
-@Override
-protected void configure(HttpSecurity http) throws Exception {
-	http
-		.oauth2Login()
-			.loginPage("/login/oauth2")
-			//...
-			.authorizationEndpoint()
-				.baseUri("/login/oauth2/authorization")
-				//....
-}
-```
-- Need to provide a `@Controller` with a `@RequestMapping("/login/oauth2")` that is capable of rendering the custom login page.
-- Configuring `oauth2Login().authorizationEndpoint().baseUri()` is optional. However, if you choose to customize it, ensure the link to each OAuth Client matches the `authorizationEndpoint().baseUri()`.
-
-
-
-## redirection Endpoint
-
-The Redirection Endpoint is used by the Authorization Server for returning the Authorization Response (which contains the authorization credentials and will be intercepted by the LoginAuthenticationfilter) to the client
-
-The default Authorization Response baseUri
-```json
-/login/oauth2/code/*
-```
-
-We can customize it to any other URL of our choice `(/oauth2/callback/)`.  
-
-In application.properties
-```json
-spring.security.oauth2.client.registration.google.redirect-uri=http://localhost:8080/oauth2/callback/google
-```
-
-In Spring boot web security  
-```java
-protected void configure(HttpSecurity http) throws Exception {
-        http.authorizeRequests().anyRequest().authenticated()
-                .and()
-                .oauth2Login()
-                .redirectionEndpoint()
-                 .baseUri("login/oauth2/callback/*");
-    }
-```
-
-## userInfoEndpoint (An AuthenticationManager)
-
-It retrieve the authenticated Oauth2 User 
-
-The UserInfo Endpoint includes a number of configuration options,
-- Mapping Authenticated User from third party Authorities for this application
-- “Configuring a Custom OAuth2User”
-- “OAuth 2.0 UserService”
-- “OpenID Connect 1.0 UserService”
-
-```java
-@Override
-	protected void configure(HttpSecurity http) throws Exception {
-		htt.oauth2Login()
-		   .userInfoEndpoint()
-		   // set up the Auhorities of this application
-          	   .userAuthoritiesMapper(this.userAuthoritiesMapper())
-		   // retrieve the authentticated user from third party
-                   .userService(this.oauth2UserService())
-		   .oidcUserService(this.oidcUserService())
-	}
-```
-
-
-### configure a custom `.userAuthoritiesMapper(this.userAuthoritiesMapper)`
-
-After the user successfully authenticates with the OAuth 2.0 Provider, the OAuth2User.getAuthorities() (or OidcUser.getAuthorities()) may be mapped to a new set of GrantedAuthority instances, which will be supplied to OAuth2AuthenticationToken when completing the authentication.
-```java
-	private GrantedAuthoritiesMapper userAuthoritiesMapper() {
-		return (authorities) -> {
-			Set<GrantedAuthority> mappedAuthorities = new HashSet<>();
-
-			authorities.forEach(authority -> {
-				if (OidcUserAuthority.class.isInstance(authority)) {
-					OidcUserAuthority oidcUserAuthority = (OidcUserAuthority)authority;
-
-					OidcIdToken idToken = oidcUserAuthority.getIdToken();
-					OidcUserInfo userInfo = oidcUserAuthority.getUserInfo();
-
-					// Map the claims found in idToken and/or userInfo
-					// to one or more GrantedAuthority's and add it to mappedAuthorities
-
-				} else if (OAuth2UserAuthority.class.isInstance(authority)) {
-					OAuth2UserAuthority oauth2UserAuthority = (OAuth2UserAuthority)authority;
-          
-					Map<String, Object> userAttributes = oauth2UserAuthority.getAttributes();
-
-					// Map the attributes found in userAttributes
-					// to one or more GrantedAuthority's and add it to mappedAuthorities
-
-				}
-			});
-
-			return mappedAuthorities;
-		};
-	} 
-```
-
-### Configure a custom`.userService(this.oauth2UserService())` or `.oidcUserService(this.oidcUserService())`
-
-The OAuth2UserRequest (and OidcUserRequest) provides you access to the associated OAuth2AccessToken, which is very useful in the cases where the delegator needs to fetch authority information from a protected resource before it can map the custom authorities for the user.
-
-```java
-
-	private OAuth2UserService<OidcUserRequest, OidcUser> oidcUserService() {
-		final OidcUserService delegate = new OidcUserService();
-
-		return (userRequest) -> {
-			// Delegate to the default implementation for loading a user
-			OidcUser oidcUser = delegate.loadUser(userRequest);
-
-			OAuth2AccessToken accessToken = userRequest.getAccessToken();
-			Set<GrantedAuthority> mappedAuthorities = new HashSet<>();
-
-			// TODO
-			// 1) Fetch the authority information from the protected resource using accessToken
-			// 2) Map the authority information to one or more GrantedAuthority's and add it to mappedAuthorities
-
-			// 3) Create a copy of oidcUser but use the mappedAuthorities instead
-			oidcUser = new DefaultOidcUser(mappedAuthorities, oidcUser.getIdToken(), oidcUser.getUserInfo());
-
-			return oidcUser;
-		};
-	}
-```
-
-### Configure a `.customUserType(GitHubOAuth2User.class, "github")`
-
-If the default implementation (DefaultOAuth2User) does not suit your needs, you can define your own implementation of OAuth2User.
-
-for example creating a custom Oauth2User user Model for github
-```java
-@Override
-protected void configure(HttpSecurity http) throws Exception {
-	http
-		.oauth2Login()
-			.userInfoEndpoint()
-				.customUserType(GitHubOAuth2User.class, "github")
-				...
-}
-```
-
-```java
-public class GitHubOAuth2User implements OAuth2User {
-
-  /* We often override getAuthorities() and getAttributes()*/
-	private List<GrantedAuthority> authorities = AuthorityUtils.createAuthorityList("ROLE_USER");
-	
-  private Map<String, Object> attributes;
-	private String id;
-	private String name;
-	private String login;
-	private String email;
-
-	@Override
-	public Collection<? extends GrantedAuthority> getAuthorities() {
-		return this.authorities;
-	}
-
-	@Override
-	public Map<String, Object> getAttributes() {
-		if (this.attributes == null) {
-			this.attributes = new HashMap<>();
-			this.attributes.put("id", this.getId());
-			this.attributes.put("name", this.getName());
-			this.attributes.put("login", this.getLogin());
-			this.attributes.put("email", this.getEmail());
-		}
-		return attributes;
-	}
-  // getter and setter
-}
-```
-
-### Configure a custom `.userService(this.oauth2Service())`
-
-A `DefaultOAuth2UserService` is an implementation of an `OAuth2UserService` that supports standard OAuth 2.0 Provider’s.
-> OAuth2UserService obtains the user attributes of the end-user (the resource owner) from the UserInfo Endpoint (by using the access token granted to the client during the authorization flow) and returns an AuthenticatedPrincipal in the form of an OAuth2User.
-
-```java
-//...
-	@Override
-	protected void configure(HttpSecurity http) throws Exception {
-		http
-			.oauth2Login()
-				.userInfoEndpoint()
-					.userService(this.oauth2UserService())
-					...
-	}
-
-	private OAuth2UserService<OAuth2UserRequest, OAuth2User> oauth2UserService() {
-		return new CustomOAuth2UserService();
-  }
-```
-
-
-```java
-@Service
-public class CustomOAuth2UserService extends DefaultOAuth2UserService{
-
-  @Autowired
-  private UserRepository userRepository;
-  //..
-
-  @Override
-  public OAuth2User loadUser(OAuth2UserRequest oAuth2UserRequest) throws OAuth2AuthenticationException {
-    //..
-
-  
-  }
-}
-```
-
-# Customizing Token Endpoint
-
-`OAuth2AccessTokenResponseClient` is responsible for exchanging an authorization grant credential for an access token credential at the Authorization Server’s Token Endpoint.
-
-```java
-@Override
-protected void configure(HttpSecurity http) throws Exception {
-	http.oauth2Login()
-	    .tokenEndpoint()
-		.accessTokenResponseClient(this.accessTokenResponseClient())
-	     //...
-}
-
-private OAuth2AccessTokenResponseClient<OAuth2AuthorizationCodeGrantRequest> accessTokenResponseClient() {
-	return new SpringWebClientAuthorizationCodeTokenResponseClient();
-}
-```
