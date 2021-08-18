@@ -201,11 +201,6 @@ public class OAuth2ClientController {
 ## (THE AUTHORIZATION) `OAuth2AuthorizedClientProvider`
 A strategy for authorizing (or re-authorizing) **an OAuth 2.0 Client (The Applciation that The user are currently using)**  
 
-- For an Oauth2 Authorized provider must provide these two to authenticate
-  > `ClientRegistration` is a representation of a client registered with an OAuth 2.0 or OpenID Connect 1.0 Provider.  
-  > `OAuth2AuthorizedClient` is a representation of an Authorized Client.
- 
-
 ```diff
 Provider
 '-Oauth2AccessToken 
@@ -213,30 +208,32 @@ Provider
        '->OAuth2AuthorizedClientRepository
 	  '--->OAuth2AuthorizedClient
 ```
-- `Oauth2AuthorizedClientProvider` delegats the persistence of an `OAuth2AuthorizedClient`, typically using an `OAuth2AuthorizedClientService` or `OAuth2AuthorizedClientRepository` provides lookup associated with the `clientOAuth2AccessToken`  
+- For an Oauth2 Authorized provider must provide these two to authenticate
+  > `ClientRegistration` is a representation of a client registered with an OAuth 2.0 or OpenID Connect 1.0 Provider.  
+  > `OAuth2AuthorizedClient` is a representation of an Authorized Client.
+ 
+- `Oauth2AuthorizedClientProvider` **DELEGEATES** the persistence of an `OAuth2AuthorizedClient`, typically using an `OAuth2AuthorizedClientService` or `OAuth2AuthorizedClientRepository` provides lookup associated with the `clientOAuth2AccessToken`  
    > [`Oauth2AuthorizedClientProvider` Example](https://www.programmersought.com/article/10451235590/)  
 
-#### REVIEW of The Authentication
-
-The Authentication Process In Spring Security
+#### REVIEW of The Authentication Process IN Spring Security
 
 ```diff
-- xxxManager is based on xxxProvider via xxxProviderBuilder to build it
+- xxxManager  is based on xxxProvider via xxxProviderBuilder to build it
 + xxxProvider is based on the xxxRepository
 ```
 
-### `OAuth2AuthorizedClient`
+### (YOU CAN ACCESS MY RESOURCE) `OAuth2AuthorizedClient`
 
-For **a client is considered to be authorized** when the end-user/Resource Owner has granted authorization to the client to access its protected resources.
+For **a client is considered to be authorized** when the end-user/Resource Owner has **GRANTED** authorization to the client to access its protected resources.
+
 ```java
 public class OAuth2AuthorizedClient implements Serializable {
-
 	/**
-	 * Constructs an {@code OAuth2AuthorizedClient} using the provided parameters.
-	 * @param `clientRegistration`  the authorized client's registration
-	 * @param `principalName`       the name of the End-User {@code Principal} (Resource Owner)
-	 * @param `accessToken`         the access token credential granted
-	 * @param `refreshToken`        the refresh token credential granted
+	 * <P> Constructs an {@link OAuth2AuthorizedClient} using the following provided parameters. </p>
+	 * @param clientRegistration  the authorized client's registration
+	 * @param principalName       the name of the End-User {@code Principal} (Resource Owner)
+	 * @param accessToken         the access token credential granted
+	 * @param refreshToken        the refresh token credential granted
 	 */
 	public OAuth2AuthorizedClient(ClientRegistration clientRegistration, 
 				      String principalName,
@@ -252,22 +249,22 @@ public class OAuth2AuthorizedClient implements Serializable {
 		this.refreshToken = refreshToken;
 	}
 	
- // ....
+ 	// ...
 ```
 
 ### `OAuth2AccessToken`
 ```java
 public class OAuth2AccessToken extends AbstractOAuth2Token {	 
+	 
 	 /**
-	 * Constructs an {@code OAuth2AccessToken} using the provided parameters.
+	 * Constructs an {@code OAuth2AccessToken} using the following provided parameters.
 	 * @param tokenType    the token type
 	 * @param tokenValue   the token value
 	 * @param issuedAt     the time at which the token was issued
 	 * @param expiresAt    the expiration time on or after which the token MUST NOT be accepted
 	 * @param scopes       the scope(s) associated to the token
 	 */
-	
-	
+
 	public OAuth2AccessToken(TokenType tokenType, String tokenValue, Instant issuedAt, Instant expiresAt) {
 		this(tokenType, tokenValue, issuedAt, expiresAt, Collections.emptySet());
 	}
@@ -444,15 +441,14 @@ public class OAuth2AuthorizationRequestRedirectFilter extends OncePerRequestFilt
 - If the grant is valid then we goes the next filter `OAuth2LoginAuthenticationFilter`  
 
 ### Resolver
-The default implementation `DefaultOAuth2AuthorizationRequestResolver` matches on the (default) path `/oauth2/authorization/{registrationId}` extracting the `registrationId` (from class `ClientRegistration`) and using it to build the `OAuth2AuthorizationRequest` for the associated `ClientRegistration`.  
-- **`DefaultOAuth2AuthorizationRequestResolver` determines to** give a grant or not and then return instance of the `AuthorizaionRequest` to filter.
 
-```diff
-DefaultOAuth2AuthorizationRequestResolver
-'--extract registrationId from /oauth2/authorization/{registrationId}
-   '--use registrationId build Oauth2AuthorizationRequest
+```java
+{@cpde DefaultOAuth2AuthorizationRequestResolver}
+'--extract {@code registrationId} from "/oauth2/authorization/{registrationId}"
+   '--use {@code registrationId} build {@code Oauth2AuthorizationRequest}
 ```
-
+- The default implementation `DefaultOAuth2AuthorizationRequestResolver` matches on the (default) path `/oauth2/authorization/{registrationId}` extracting the `registrationId` (from class `ClientRegistration`) and using it to build the `OAuth2AuthorizationRequest` for the associated `ClientRegistration`.  
+  > **`DefaultOAuth2AuthorizationRequestResolver` determines to** give a grant or not and then return instance of the `AuthorizaionRequest` to filter.
 
 ```java
 //Returns the OAuth2AuthorizationRequest resolved from the provided HttpServletRequest or null if not available.
@@ -508,9 +504,13 @@ private OAuth2AuthorizationRequest resolve(HttpServletRequest request, String re
 
 #### `expandRedirectUri`
 
-Generate Expand Redirect URI (URI from `ClientREgistration` + URI from `HttpServletRequest`'s Attributes)
+```diff
+expandRedirectUri = URI_ClientRegistration + HttpServletRequest's Attributes
+````
+- Generate Expand Redirect URI (e.g. URI from `ClientRegistration` + `HttpServletRequest`'s Attributes)
 
-![image](https://user-images.githubusercontent.com/68631186/122837983-a7f57a00-d327-11eb-91c6-beef66472fd6.png)
+![image](https://user-images.githubusercontent.com/68631186/122837983-a7f57a00-d327-11eb-91c6-beef66472fd6.png)  
+
 ```java 
 /**
  * Expands the {@link ClientRegistration#getRedirectUri()} with following provided variables:
@@ -530,22 +530,28 @@ private static String expandRedirectUri(HttpServletRequest request,
 					String action) {
 	
 	/**
-	  clientRegistration : Get default reditrect uri 
-	  request : Get the attributes we need for exapnding default redirecturi that fetched from clientRegistration
+	  * <li> clientRegistration : Get default reditrect uri </li>
+	  * <li> request : 
+	  *      Get the attributes we need for exapnding 
+	  *      default redirecturi that fetched from clientRegistration </li>
 	  */
-
 
         // Map<String,Strig> attributes from httpServletrequest and clientRegistration
 	Map<String, String> uriVariables = new HashMap<>();
 	uriVariables.put("registrationId", clientRegistration.getRegistrationId());
 	
-	// using class `UriComponents` helps us get Attibutes in the httpservletrequest
+	/**
+	  * {@code UrlUtils} build httUrl based on {@code HttpServletRequest}
+	  */
 	UriComponents uriComponents = UriComponentsBuilder.fromHttpUrl(UrlUtils.buildFullRequestUrl(request))
 			.replacePath(request.getContextPath())
 			.replaceQuery(null)
 			.fragment(null)
 			.build();
 	
+	/**
+	 *  using {@code UriComponents} helps us get Attibutes in the {@code HttpServletRequest} 
+	 */
 	String scheme = uriComponents.getScheme();  // e.g. `https`
 	uriVariables.put("baseScheme", (scheme != null) ? scheme : "");
 	
@@ -567,52 +573,64 @@ private static String expandRedirectUri(HttpServletRequest request,
 	uriVariables.put("baseUrl", uriComponents.toUriString());
 	uriVariables.put("action", (action != null) ? action : ""); // login , signup etc ...
 	
-	// Form a new (RedirectUri) + (Urivariable) uri
-	// RedirectUri : {baseScheme}://{baseHost}{basePort}{basePath}.
+	/**
+	  * <p> Form a new <pre> (RedirectUri) + (Urivariable) </pre> Uri 
+	  *     RedirectUri : <pre> {baseScheme}://{baseHost}{basePort}{basePath}. </pre></p>
+	  * <p> Get {@code RedirectUri} from {@code clientRegistration} 
+	  *     And Expand it with attributes that extract from {@code HttpServletRequest} 
+	  *     and {@code clientRegistration} </p>
+	  */
 	return UriComponentsBuilder
 			.fromUriString(clientRegistration.getRedirectUri())
-				.buildAndExpand(uriVariables)
+		        .buildAndExpand(uriVariables)
 			.toUriString();
 }
+```
 
+Usage of `UrlUtil`
+```java
 public final class UrlUtil{
-	// .. other methods ...
+	// ...
 	
 	/**
-	 *  Get Attribute from HttpservletRequest 
+	 *  Get Attributes from {@code HttpservletRequest} 
 	 */
 	public static String buildRequestUrl(HttpServletRequest r) {
-	return buildRequestUrl(r.getServletPath(), r.getRequestURI(), r.getContextPath(), r.getPathInfo(),
-			r.getQueryString());
+	return buildRequestUrl(r.getServletPath(), r.getRequestURI(), 
+		               r.getContextPath(), r.getPathInfo(),
+			       r.getQueryString());
 	}
 }
 
-/* get URI or URL */
+/**
+  * To Get URI or URL 
+  */
 public interface HttpServletRequest extends ServletRequest {
-  /**
-     * Returns the part of this request's URL from the protocol
-     * name up to the query string in the first line of the HTTP request.
-     * The web container does not decode this String.
-     * For example:
+    /**
+     * <p> Returns the part of this request's URL from the protocol
+     * name up to the query string in the first line of the HTTP request. </p>
+     * <p> The web container does not decode this String. </p>
      *
+     * <p> For example: </p>
      * <table summary="Examples of Returned Values">
-     * <tr align=left><th>First line of HTTP request </th>
-     * <tr><td>POST /some/path.html HTTP/1.1<td>	<td>/some/path.html
-     * <tr><td>GET http://foo.bar/a.html HTTP/1.0       <td><td>/a.html
-     * <tr><td>HEAD /xyz?a=b HTTP/1.1			<td><td>/xyz
+     * <tr align=left><th> First line of HTTP request </th>
+     * <tr><td>	           POST /some/path.html HTTP/1.1<td>	<td>	/some/path.html
+     * <tr><td>	           GET http://foo.bar/a.html HTTP/1.0   <td><td>/a.html
+     * <tr><td>	           HEAD /xyz?a=b HTTP/1.1		<td><td>/xyz
      *
-     * To reconstruct an URL with a scheme and host, use {@link HttpUtils#getRequestURL}.
+     * <p> To reconstruct an URL with a scheme and host, 
+     *     use {@link HttpUtils#getRequestURL}. </p>
      *
-     * @return		a <code>String</code> containing
-     *			the part of the URL from the
-     *			protocol name up to the query string
+     * @return a <code>String</code> containing
+     *	       the part of the URL from the
+     *	       protocol name up to the query string
      */
     public String getRequestURI();
 
     /**
-     * The returned URL contains a `protocol`, `server name`, `port`
-     * `number`, and `server path`, but it does not include **query
-     * string parameters**.
+     * <p> The returned URL contains a `protocol`, `server name`, `port`
+     * `number`, and `server path`, but it does not include query
+     * string parameters.</p>
      *
      * Because this method returns a <code>StringBuffer</code>,
      * not a string, you can modify the URL easily, for example,
@@ -631,46 +649,52 @@ public interface HttpServletRequest extends ServletRequest {
 
 public class HttpUtils {
    /**
-     * Reconstructs the URL the client used to make the request,
-     * using information in the <code>HttpServletRequest</code> object.
-     * The returned URL contains a protocol, server name, port
+     * <p> Reconstructs the URL the client used to make the request,
+     * using information in the <code>HttpServletRequest</code> object. </p>
+     * <p> The returned URL contains a protocol, server name, port
      * number, and server path, but it does not include query
-     * string parameters.
+     * string parameters. </p>
      * 
      * <p>Because this method returns a <code>StringBuffer</code>,
      * not a string, you can modify the URL easily, for example,
-     * to append query parameters.
+     * to append query parameters. </p>
      *
      * <p>This method is useful for creating redirect messages
-     * and for reporting errors.
+     * and for reporting errors. </p>
      *
-     * @param req	a <code>HttpServletRequest</code> object
+     * @param req	a {@code HttpServletRequest} object
      *			containing the client's request
      * 
-     * @return		a <code>StringBuffer</code> object containing
+     * @return		a {@code StringBuffer} object containing
      *			the reconstructed URL
      */
     public static StringBuffer getRequestURL (HttpServletRequest req) {
+    
         StringBuffer url = new StringBuffer();
+	
         String scheme = req.getScheme ();
         int port = req.getServerPort ();
+	
         String urlPath = req.getRequestURI();
 
-        //String		servletPath = req.getServletPath ();
-        //String		pathInfo = req.getPathInfo ();
+        //String servletPath = req.getServletPath ();
+        //String pathInfo = req.getPathInfo ();
 
-        url.append (scheme);		// http, https
+        url.append (scheme);  // http, https
         url.append ("://");
         url.append (req.getServerName ());
+	
         if ((scheme.equals ("http") && port != 80)
         || (scheme.equals ("https") && port != 443)) {
             url.append (':');
             url.append (req.getServerPort ());
         }
+	
         //if (servletPath != null)
         //    url.append (servletPath);
         //if (pathInfo != null)
         //    url.append (pathInfo);
+	
         url.append(urlPath);
 
         return url;
@@ -679,37 +703,49 @@ public class HttpUtils {
 ```
 
 ### Redirct to Authorized page
-[forward and redirect](https://stackoverflow.com/questions/20371220/what-is-the-difference-between-response-sendredirect-and-request-getrequestdis)  
+[FORWARD and REDIRECT](https://stackoverflow.com/questions/20371220/what-is-the-difference-between-response-sendredirect-and-request-getrequestdis)  
 
 ```java
 private void sendRedirectForAuthorization(HttpServletRequest request, HttpServletResponse response,
                                           OAuth2AuthorizationRequest authorizationRequest) throws IOException {
     // check the Auhtorization Grant Type
     if (AuthorizationGrantType.AUTHORIZATION_CODE.equals(authorizationRequest.getGrantType())) {
-    	// save the request payloads (state, url ,... etc ) in http session
+    	
+	// save the request payloads (state, url ,... etc ) in http session
         this.authorizationRequestRepository.saveAuthorizationRequest(authorizationRequest, request, response);
     }
-    // authorizationRedirectStrategy是DefaultRedirectStrategy
-    // authorizationRequest.getAuthorizationRequestUri() : third party appliction login page (Wart daruaf, Der Nutzer gibt password/emaill ein)
+    
+    /**
+     * <p> {@code authorizationRedirectStrategy} is {@code DefaultRedirectStrategy} </p>
+     * <p> {@code authorizationRequest.getAuthorizationRequestUri()}
+     *     third party appliction login page (Wart daruaf, Der Nutzer gibt password/emaill ein) </p>
+     */
     this.authorizationRedirectStrategy.sendRedirect(request, response, authorizationRequest.getAuthorizationRequestUri());
 }
+```
 
-public void sendRedirect(HttpServletRequest request, HttpServletResponse response,
+Usage of `sendRedirect`
+```java
+public void sendRedirect(HttpServletRequest request, 
+			 HttpServletResponse response,
                          String url) throws IOException {
     String redirectUrl = calculateRedirectUrl(request.getContextPath(), url);
     redirectUrl = response.encodeRedirectURL(redirectUrl);
-
+    
     if (logger.isDebugEnabled()) {
         logger.debug("Redirecting to '" + redirectUrl + "'");
     }
  
-    // the response will send here
+    
     // To the page that user from third party application to grant or deny the access
     response.sendRedirect(redirectUrl);
 }
 ```
 
-## `OAuth2LoginAuthenticationFilter` handles for
+## [`OAuth2LoginAuthenticationFilter`](https://zhuanlan.zhihu.com/p/100625981) handles for
+
+[reference](https://www.cnblogs.com/felordcn/p/13992477.html)  
+
 
 1. If the user grants the client can fetch his resource from third party applocation,then this filter will add Authorized Grant Code, state ...etc in the `redirect_url`  
 
@@ -721,12 +757,8 @@ public void sendRedirect(HttpServletRequest request, HttpServletResponse respons
 4. `SecurityContextPersistenceFilter` will store protected resource in the local http session  (local endpoint) after that
 
 
+![image](https://user-images.githubusercontent.com/68631186/122872974-cd07de00-d363-11eb-88a4-67edc7b91d04.png)   
 
-[OAuth2LoginAuthenticationFilter](https://zhuanlan.zhihu.com/p/100625981)
-
-[ref](https://www.cnblogs.com/felordcn/p/13992477.html)  
-
-![image](https://user-images.githubusercontent.com/68631186/122872974-cd07de00-d363-11eb-88a4-67edc7b91d04.png)  
 ```java
 /**
  * <p> Process an Oauth 2.0 Authorization Response 
@@ -851,9 +883,9 @@ public class OAuth2LoginAuthenticationFilter extends AbstractAuthenticationProce
 ```
 
 
-## Intercept The Oauth2AuthorizationRequest
+## Intercept The `OAuth2AuthorizationRequest`
+
 ```java
-// Intercept the OAuth2AuthorizationRequest
 @Override
 public OAuth2AuthorizationRequest removeAuthorizationRequest(HttpServletRequest request) {
 	Assert.notNull(request, "request cannot be null");
@@ -888,14 +920,14 @@ public OAuth2AuthorizationRequest removeAuthorizationRequest(HttpServletRequest 
 
 /**
  * Get Map<"state" , OAuth2AuthorizationRequest state_code> instance from the `OAuth2AuthorizationRequest` or `Map` 
- * 	From session via HttpServletRequest and return this Map instance
+ * From session via HttpServletRequest and return this Map instance
  */
 private Map<String, OAuth2AuthorizationRequest> getAuthorizationRequests(HttpServletRequest request) {
 
-		// returns a session only if there is one associated with the request (if not then dont create new session automatically)
+		// Return a session only if there is one associated with the request (if not then dont create new session automatically)
 		HttpSession session = request.getSession(false);
 		
-		// get session attribute's value coulde be an instance of OAuth2AuthorizationRequest or Map 
+		// Get session attribute's value coulde be an instance of OAuth2AuthorizationRequest or Map 
 		Object sessionAttributeValue = (session != null) ? session.getAttribute(this.sessionAttributeName) : null;
 		if (sessionAttributeValue == null) {
 			return new HashMap<>();
@@ -924,7 +956,7 @@ private Map<String, OAuth2AuthorizationRequest> getAuthorizationRequests(HttpSer
 
 
 /**
- * Check the `state` parameter
+ * Check the {@code state} parameter
  */
 final class OAuth2AuthorizationResponseUtils {
 
@@ -1021,27 +1053,27 @@ public class OAuth2LoginAuthenticationProvider implements AuthenticationProvider
 
 #### Conclusion of the filters
 
-1. OAuth2AuthorizationRequestResolver resolves the request from client，
-   > If the request is not null, it returns an instance of OAuth2AuthorizationRequest including `client_id`, `state`, `redirect_uri`
+1. `OAuth2AuthorizationRequestResolver` resolves the (`HttpServletRequest`) request from client，
+   > If the request is not `null`, it returns an instance of `OAuth2AuthorizationRequest` including `client_id`, `state`, `redirect_uri` ...
 
-2. Store this oAuth2AuthorizationRequest via `authorizationRequestRepository.saveAuthorizationRequest` to the http session 
+2. Store the valid `OAuth2AuthorizationRequest` via `authorizationRequestRepository.saveAuthorizationRequest` to the client's(spring application) session 
    > Authorization Server can look up authorization request's attribute `state` in the httpsession to compare wiht `state` from client's request to prevent the csrf attack
 
-3. (if retured OAuth2AuthorizationRequest instance is not null)，filter will call `response.sendRedirect` methods (to the authorized endpoint e.g github login page ... etc)
-   > Oauth2AuthorizationRequest sends to the frontend's response to redirect browser to the authorized page for the user entering password/email ..etc to be authenticated by Loginfilter
+3. (If retured `OAuth2AuthorizationRequest` instance is not `null`)，filter will call `response.sendRedirect` method (to the Authorized Endpoint)
+   > `OAuth2AuthorizationRequest` sent the frontend's response to redirect browser to the authorized page for the user entering password/email ..etc to be authenticated by Loginfilter
 
-## AuthorizationRequestRepository (Authorization Endpoint)
+## `authorizationRequestRepository` (Authorization Endpoint)
 
-The `AuthorizationRequestRepository` is responsible for the persistence of the `OAuth2AuthorizationRequest` from the time the Authorization Request is initiated to the time the Authorization Response is received (intercepted by `OAuth2LoginAuthenticationFilter`).
+The `authorizationRequestRepository` is responsible for the persistence of the `OAuth2AuthorizationRequest` from the time the Authorization Request is initiated to the time the Authorization Response is received (intercepted by `OAuth2LoginAuthenticationFilter`).
 
-It is Used by the `OAuth2AuthorizationRequestRedirectFilter` for persisting the `OAuth2AuthorizationRequest` before it initiates the authorization code grant flow.  
-As well, used by the `OAuth2LoginAuthenticationFilter` for resolving the associated Authorization Request when handling the callback of the Authorization Response.  
+- It is Used by the `OAuth2AuthorizationRequestRedirectFilter` for persisting the `OAuth2AuthorizationRequest` before it initiates the authorization code grant flow.  
+- As well, used by the `OAuth2LoginAuthenticationFilter` for resolving the associated Authorization Request when handling the callback of the Authorization Response.  
 
 REVIEW of `OAuth2AuhroizationRequest`  
-- A representation of an OAuth 2.0 Authorization Request for the authorization code grant type or implicit grant type.
-- [code](https://docs.spring.io/spring-security/site/docs/current/api/org/springframework/security/oauth2/core/endpoint/OAuth2AuthorizationRequest.html)
+- A representation of an OAuth 2.0 Authorization Request for the authorization code grant type or implicit grant type. [code](https://docs.spring.io/spring-security/site/docs/current/api/org/springframework/security/oauth2/core/endpoint/OAuth2AuthorizationRequest.html)
 
 ### A custom AuthorizationRequestRepository  
+
 ```java
 @EnableWebSecurity
 public class OAuth2ClientSecurityConfig extends WebSecurityConfigurerAdapter {
@@ -1126,8 +1158,12 @@ public enum CommonOAuth2Provider {
     }
   };
 
+  /**
+    * Default Redirect URL of {@code ClientRegistration}
+    */
   private static final String DEFAULT_REDIRECT_URL = "{baseUrl}/{action}/oauth2/code/{registrationId}";
 
+ 
   protected final ClientRegistration.Builder getBuilder(String registrationId,
                               ClientAuthenticationMethod method, String redirectUri) {
     ClientRegistration.Builder builder = ClientRegistration.withRegistrationId(registrationId);
@@ -1154,7 +1190,7 @@ public OpaqueTokenIntrospector introspector() {
 }
 ```
 
-Or creating a custom introspector for example Extracting Authorities Manually ...
+Or creating a custom introspector (e.g. Extracting Authorities Manually) ...
 ```java
 public class CustomAuthoritiesOpaqueTokenIntrospector implements OpaqueTokenIntrospector {
     private OpaqueTokenIntrospector delegate =
@@ -1183,11 +1219,10 @@ public OpaqueTokenIntrospector introspector() {
 ```
 
 A custom introspector can 
-- use `RestOperations` to cinfiguring timeout
-- create custom JWTOpaueTokenIntrospector by implementing OpaqueTokenIntrospector
+- use `RestOperations` to configuring timeout
+- create custom `JWTOpaueTokenIntrospecto`r by implementing `OpaqueTokenIntrospector`
 
 # OAuth 2.0 Login Custom  Configuration
-
 
 ```java
 @EnableWebSecurity
