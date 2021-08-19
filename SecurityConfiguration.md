@@ -2,21 +2,21 @@
 [shortcome of the field based constructor](https://zhuanlan.zhihu.com/p/337498135)  
 [EnableGlobalMethodSecurity](https://matthung0807.blogspot.com/2019/09/spring-security-enableglobalmethodsecur.html)  
 [RolesAllowed and PreAuthorize](https://stackoverflow.com/questions/43961625/rolesallowed-vs-preauthorize-vs-secured)  
-[AutoWired and Bean](https://stackoverflow.com/questions/34172888/difference-between-bean-and-autowired)
+[AutoWired and Bean](https://stackoverflow.com/questions/34172888/difference-between-bean-and-autowired)   
 [EndPoint](https://docs.identityserver.io/en/latest/endpoints/userinfo.html)  
 
 # Build Up A Web Security For Spring Boot
 
 Normally We need these methods
-1. Custom `UserDetailsService` to let our Authentication Provider fetch the user personal detail information
-   - For The Custom Authentication we need to expose our `AuthenticationManager` as a bean with annotation `@Bean(BeanIds.AUTHENTICATION_MANAGER)`
-2. Custom JWT Token Filter
-3. Configure(**BUILD UP**) the Authentication **Provider** via An `AuthenticationManager`'s `AuthenticationManagerBuilder` method
-4. Configure the each web page's security via `httpSecurity`
+1. Custom `UserDetailsService` to let our Authentication Provider fetch the user personal detail information   
+   - For The Custom Authentication we need to expose our `AuthenticationManager` as a bean with annotation `@Bean(BeanIds.AUTHENTICATION_MANAGER)`  
+2. Custom JWT Token Filter  
+3. Configure(**BUILD UP**) the Authentication **Provider** via An `AuthenticationManager`'s `AuthenticationManagerBuilder` method   
+4. Configure the each web page's security via `httpSecurity`  
 
 ## Web Security Configuration (build up user Authentication Implementation)
 
-To Configure Spring Security via an Implementation of `WebSecurityConfigurerAdapter`
+To Configure Spring Security via an Implementation of `WebSecurityConfigurerAdapter`  
 
 ```java
 @Condiguration     
@@ -100,6 +100,8 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter{
 ```
 
 ##  `@EnableGlobalMethodSecurity`
+
+
 ### `securedEnabled`
 It protects the `controller/service` layer with Specific Authorities
 
@@ -118,7 +120,7 @@ public boolean isUsernameAvailable() {}
 
 ### `jsr250Enabled` for `@RolesAllowed`
 
-It's same as `@secured()` but with different framwork standard
+It's same as `@secured()` but with different framwork standard   
 
 ```java
 @Secured({"ROLE_USER", "ROLE_ADMIN"})
@@ -134,7 +136,7 @@ public User getUser(Long id) {
 
 ### `prePostEnabled`
 
-It enables more complex expression based (e.g methods … ) access control syntax with `@PreAuthorize` and `@PostAuthorize` annotations
+It enables more complex expression based (e.g methods … ) access control syntax with `@PreAuthorize` and `@PostAuthorize` annotations   
 
 ```java
 @PreAuthorize("isAnonymous()")
@@ -145,9 +147,9 @@ public Poll createPoll() {}
 ```
 
 ## Interface `UserdetailsService`
-This interface loads/fetchs the user details (password, name, email etc... from database) for the authentication. 
+This interface loads/fetchs the user details (password, name, email etc... from database) for the authentication.   
 
-In the implementation of this interface, We’ll also define a custom UserPrincipal class that implements `UserDetails` interface, and return  as the UserPrincipal object from overridden method `loadUserByUsername()` in implementation of UserDetailsService interface
+In the implementation of this interface, We’ll also define a custom UserPrincipal class that implements `UserDetails` interface, and return  as the UserPrincipal object from overridden method `loadUserByUsername()` in implementation of UserDetailsService interface   
 
 ```java
 @AllargsConstructor
@@ -165,12 +167,12 @@ public class CustomUserdetailsService implements UserdetailsService
 
 ## redirect 401 error  
 
-To return 401 unauthorized error for the users/clients who try to access a protected resource on server without **proper authentication**
-- We can customize 401 error unauthorized error by implementing `AuthenticationEntryPoint` interface
+To return 401 unauthorized error for the users/clients who try to access a protected resource on server without **proper authentication**  
+- We can customize 401 error unauthorized error by implementing `AuthenticationEntryPoint` interface  
 
 ### Custom Security `AuthenticationEntryPoint`
 
-`AuthenticationEntryPoint` interface proivdes `commence()` method to throw an exception for users/clients with unproper authentication
+`AuthenticationEntryPoint` interface proivdes `commence()` method to throw an exception for users/clients with unproper authentication  
 
 ```java
 package com.example.polls.security;
@@ -201,20 +203,20 @@ public class JwtAuthenticationEntryPoint implements AuthenticationEntryPoint {
 ```
 
 ## Custom Filter
-A Custom Filter is most used to create JWT filter
+A Custom Filter is most used to create JWT filter  
 
-Main design of JWT filter follows (normally) the following process
+Main design of JWT filter follows (normally) the following process  
 - Reads 
-  > JWT authentication token from the Authorization header of all the requests
+  > JWT authentication token from the Authorization header of all the requests  
 - Validating
-  > The token that client provided
+  > The token that client provided  
 - Loads 
-  > The user details associated with that token.
-- Set the **UserDetails** in Spring Security’s SecurityContext. 
-  > Spring Security uses the class `UserDetails` to perform authorization checks.     
+  > The user details associated with that token  
+- Set the **UserDetails** in Spring Security’s SecurityContext.  
+  > Spring Security uses the class `UserDetails` to perform authorization checks.      
   > We can also access the user details stored in the `SecurityContext` in our controllers to perform our business logic.  
 
-```jav
+```java
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 /* first we get jwt from request payload 
     {Authorization : Bears OUR_JWT }
@@ -353,8 +355,8 @@ The flow is kidda same as the above , but with a little difference
 7. Create An Inheritance extending `OAuth2AuthenticationFailureHandler` for failure authentication 
 8. Create Custom Oauth2 User Principal implementing `OAuth2User`, `UserDetails`
 9. Create Meta annotation for get `CurrentUser` from Spring Web Security (optional)
-10.Create DTOs for (login(token) response, login request, sign request, ...)
-11.Create Custom Business Excpetions (HttpStatus NOT_FOUND, BAD_REQUEST etc ...)
+10. Create DTOs for (login(token) response, login request, sign request, ...)
+11. Create Custom Business Excpetions (HttpStatus NOT_FOUND, BAD_REQUEST etc ...)
  
 ## User model for OAuth2 
 
@@ -505,41 +507,27 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
 
 ## OAuth2 login flow
 
+When we want to access 3rd party resource at first time, we will be redirected to the page where third party authorization provides (for fetching Auhorization Code)   
+this web page(login page) will ask us to allow/denies the permission to access the 3rd party account  
+
 The OAuth2 login flow will be initiated by the frontend client by sending the user to the endpoint 
-> `http://localhost:8080/oauth2/authorize/{provider}?redirect_uri=<redirect_uri_after_login>`
-`1q `
-- The `{provider}` is path parameter one of `google`, `facebook`, or `github`. 
-- The `{redirect_uri}` is the URI to which the user will be redirected once the authentication with the OAuth2 provider is successful. 
-  - This is different from the OAuth2 redirectUri.
+- `http://localhost:8080/oauth2/authorize/{provider}?redirect_uri=<redirect_uri_after_login>`  
+  > The `{provider}` is path parameter one of `google`, `facebook`, or `github`.   
+  > The `{redirect_uri}` is the URI to which the user will be redirected once the authentication with the OAuth2 provider is successful.   
 
-### Redirect the user to the AuthorizationURL of the supplied provider
+If the user granted (Successfully log In), the provider will redirect the user to the callback url (default url) `http://localhost:8080/oauth2/callback/{provider}` with an authorization code.  
+Else if the user denies the permission, he will be redirected to the same callback Url but with an error query paramter on it.   
 
-This means if we want to signup/login by third part authorization, we will be redirected to the web page where third part authorization provides
+- Callback results in an error, Spring security will invoke the `oAuth2AuthenticationFailureHandler`
+- Callback is successful and it will contain the authorization code, Spring security will exchange the authorization_code for an access_token and call the `OAuth2UserService`
 
-this web page will ask us to allow/denies permission via third part account(e.g. google account, …) to the app(the website that you are trying signup/log in )  
+The `OAuth2UserService` retrieves the details of the authenticated user and creates a new entry in the database or updates the existing entry with the same email.  
+Finally, the `oAuth2AuthenticationSuccessHandler` is invoked.  It creates a JWT authentication token for the user and sends the user to the redirect_uri along with the JWT token in a query string.  
 
-the provider will redirect the user to the callback url `http://localhost:8080/oauth2/callback/{provider}` with an authorization code.  
-If the user denies the permission, he will be redirected to the same callbackUrl but with an error.  
+## Custom OAuth2 UserService
 
-> If the OAuth2 callback results in an error, Spring security will invoke the oAuth2AuthenticationFailureHandler specified in the above SecurityConfig.
-> If the OAuth2 callback is successful and it contains the authorization code, Spring Security will exchange the authorization_code for an access_token and invoke the customOAuth2UserService specified in the above SecurityConfig.
-
-
-### Oauth2 `UserDetailService` retrives the user information
-
-The customOAuth2UserService retrieves the details of the authenticated user and creates a new entry in the database or updates the existing entry with the same email.
-
-
-### Retrun A User Details
-
-Finally, the oAuth2AuthenticationSuccessHandler is invoked. It creates a JWT authentication token for the user and sends the user to the redirect_uri along with the JWT token in a query string.
-
-
-## Define Repository for Oauth2
-
-## Custom OAuth2 User Service
-
-The CustomOAuth2UserService extends Spring Security’s DefaultOAuth2UserService and implements its loadUser() method. This method is called after an access token is obtained from the OAuth2 provider.
+The CustomOAuth2UserService extends Spring Security’s `DefaultOAuth2UserService` and implements its `loadUser()` method.  
+This method is called after an access token is obtained from the OAuth2 provider.   
 
 we first fetch the user’s details from the OAuth2 provider. If a user with the same email already exists in our database then we update his details, otherwise, we register a new user.
 
@@ -564,10 +552,13 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
         }
     }
 
-    // Via Request information(e.g. email) to fetch the user details in the third part
-    //    application
-    private OAuth2User processOAuth2User(OAuth2UserRequest oAuth2UserRequest, OAuth2User oAuth2User) {
+    /** 
+      * {@code OAuth2UserRequest.getClientRegistration().getRegistrationId()} provider
+      * {@code Oauth2User.getAttributes()} attributes from 3rd party application 
+      */
+    private OAuth2User processOAuth2User(OAuth2UserRequest oAuth2UsedrRequest, OAuth2User oAuth2User) {
         OAuth2UserInfo oAuth2UserInfo = OAuth2UserInfoFactory.getOAuth2UserInfo(oAuth2UserRequest.getClientRegistration().getRegistrationId(), oAuth2User.getAttributes());
+        
         if(StringUtils.isEmpty(oAuth2UserInfo.getEmail())) {
             throw new OAuth2AuthenticationProcessingException("Email not found from OAuth2 provider");
         }
@@ -589,37 +580,14 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
         return UserPrincipal.create(user, oAuth2User.getAttributes());
     }
 
-    // If user are sign up via third part application 
-    private User registerNewUser(OAuth2UserRequest oAuth2UserRequest, OAuth2UserInfo oAuth2UserInfo) {
-        User user = new User();
-
-        user.setProvider(AuthProvider.valueOf(oAuth2UserRequest.getClientRegistration().getRegistrationId()));
-        user.setProviderId(oAuth2UserInfo.getId());
-        user.setName(oAuth2UserInfo.getName());
-        user.setEmail(oAuth2UserInfo.getEmail());
-        user.setImageUrl(oAuth2UserInfo.getImageUrl());
-        return userRepository.save(user);
-    }
-
-    // if user are login via third part application 
-    private User updateExistingUser(User existingUser, OAuth2UserInfo oAuth2UserInfo) {
-        existingUser.setName(oAuth2UserInfo.getName());
-        existingUser.setImageUrl(oAuth2UserInfo.getImageUrl());
-        return userRepository.save(existingUser);
-    }
+    // ... update/create ...
 
 }
 ```
 
 ## Userinfo in OAuth2
 
-
-Each Third part application are response userInfo via JSON
-Each Third part application payload will be different
-So we might need to create a abstract class and extend it as a custom class for handling different third part json response
-
-
-A Base Userinfo in OAuth2 would have these
+For User Service To get different resources from different 3rd party application
 ```java
 public abstract class OAuth2UserInfo {
     
@@ -644,47 +612,9 @@ public abstract class OAuth2UserInfo {
 }
 ```
 
-we can extend the userinfo to defining custom third part userInfo(storing the info from google/facebook account etc...)
 
-```java
-public class FacebookOAuth2UserInfo extends OAuth2UserInfo {
-    public FacebookOAuth2UserInfo(Map<String, Object> attributes) {
-        super(attributes);
-    }
-
-    @Override
-    public String getId() {
-        return (String) attributes.get("id");
-    }
-
-    @Override
-    public String getName() {
-        return (String) attributes.get("name");
-    }
-
-    @Override
-    public String getEmail() {
-        return (String) attributes.get("email");
-    }
-
-    @Override
-    public String getImageUrl() {
-        if(attributes.containsKey("picture")) {
-            Map<String, Object> pictureObj = (Map<String, Object>) attributes.get("picture");
-            if(pictureObj.containsKey("data")) {
-                Map<String, Object>  dataObj = (Map<String, Object>) pictureObj.get("data");
-                if(dataObj.containsKey("url")) {
-                    return (String) dataObj.get("url");
-                }
-            }
-        }
-        return null;
-    }
-}
-```
-
-## Google
-
+Configure A Custom UserInfo for third party application's attributes  
+for example google
 ```java
 public class GoogleOAuth2UserInfo extends OAuth2UserInfo {
 
@@ -714,43 +644,14 @@ public class GoogleOAuth2UserInfo extends OAuth2UserInfo {
 }
 ```
 
-## Github
-
-```java
-public class GithubOAuth2UserInfo extends OAuth2UserInfo {
-
-    public GithubOAuth2UserInfo(Map<String, Object> attributes) {
-        super(attributes);
-    }
-
-    @Override
-    public String getId() {
-        return ((Integer) attributes.get("id")).toString();
-    }
-
-    @Override
-    public String getName() {
-        return (String) attributes.get("name");
-    }
-
-    @Override
-    public String getEmail() {
-        return (String) attributes.get("email");
-    }
-
-    @Override
-    public String getImageUrl() {
-        return (String) attributes.get("avatar_url");
-    }
-}
-```
-
-## Usertails interface
 
 
-We have to implement 2 interface
-1. userdetails
-2. OAuth2user
+## Implementation (Principal) of `Oauth2User` or `UserDetails`
+
+Congiure the custom Principal via interface `UserDetails` and `Oauth2User`
+
+`UserDetails` : for spring application  
+`Oauth2User`  : for third party application
 
 ```java
 public class UserPrincipal implements OAuth2User, UserDetails {
@@ -844,10 +745,9 @@ public class UserPrincipal implements OAuth2User, UserDetails {
 }
 ```
 
-## Get Authenticated CurrentUser
+## Custom Annotation
 
-
-### Define A Annotation called CurrentUser
+We can define a custom Annotation called `CurrentUser`
 ```java
 package com.example.springsocial.security;
 
@@ -859,12 +759,11 @@ import java.lang.annotation.*;
 @Documented
 @AuthenticationPrincipal
 public @interface CurrentUser {
-
 }
 ```
 
-### Create A Controller to get current user
 
+We can Create A Controller to get current user
 ```java
 @RestController
 public class UserController {
@@ -872,6 +771,9 @@ public class UserController {
     @Autowired
     private UserRepository userRepository;
 
+    /**
+      * with {@code @CurrentUser} to get Current User ID 
+      */
     @GetMapping("/user/me")
     @PreAuthorize("hasRole('USER')")
     public User getCurrentUser(@CurrentUser UserPrincipal userPrincipal) {
@@ -880,11 +782,14 @@ public class UserController {
     }
 }
 ```
-## Utility classes for state (cookies) 
+## Utility class for state (cookies) 
 
 ```java
 public class CookieUtils {
 
+    /**
+      * @return {@code Optional<Cookie>}
+      */
     public static Optional<Cookie> getCookie(HttpServletRequest request, String name) {
         Cookie[] cookies = request.getCookies();
 
@@ -899,6 +804,10 @@ public class CookieUtils {
         return Optional.empty();
     }
 
+
+    /**
+      * add cookie in the response via {@code addCoolie(Cookie cookie)}
+      */
     public static void addCookie(HttpServletResponse response, String name, String value, int maxAge) {
         Cookie cookie = new Cookie(name, value);
         cookie.setPath("/");
@@ -934,7 +843,7 @@ public class CookieUtils {
 ```
 
 
-## Exception Class for OAuth2
+## `AuthenticationException` Exception for OAuth2
 
 ```java
 package com.example.springsocial.exception;
