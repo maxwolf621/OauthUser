@@ -1,4 +1,4 @@
-# OAuth2 endPoints 
+# Custom OAuth2 Endpoints 
 
 ```java
 @EnableWebSecurity
