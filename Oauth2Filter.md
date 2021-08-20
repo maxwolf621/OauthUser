@@ -39,7 +39,7 @@ public class OAuth2AuthorizationRequestRedirectFilter extends OncePerRequestFilt
 
 ### Resolver
 
-```java
+```diff
 {@cpde DefaultOAuth2AuthorizationRequestResolver}
 '--extract {@code registrationId} from "/oauth2/authorization/{registrationId}"
    '--use {@code registrationId} build {@code Oauth2AuthorizationRequest}
@@ -48,13 +48,26 @@ public class OAuth2AuthorizationRequestRedirectFilter extends OncePerRequestFilt
   > **`DefaultOAuth2AuthorizationRequestResolver` determines to** give a grant or not and then return instance of the `AuthorizaionRequest` to filter.
 
 ```java
-//Returns the OAuth2AuthorizationRequest resolved from the provided HttpServletRequest or null if not available.
+/**
+  * @return the OAuth2AuthorizationRequest resolved 
+  *         from the provided HttpServletRequest 
+  *         or null if not available.
+  */
 OAuth2AuthorizationRequest resolve(javax.servlet.http.HttpServletRequest request)	
 
-//Returns the OAuth2AuthorizationRequest resolved from the provided HttpServletRequest or null if not available.
+/**
+  * @return the OAuth2AuthorizationRequest 
+  *         resolved from the provided 
+  *         {@code HttpServletRequest} 
+  *         or {@code null} if not available.
+  */
 OAuth2AuthorizationRequest resolve(javax.servlet.http.HttpServletRequest request, java.lang.String registrationId)	
 
-//Sets the Consumer to be provided the OAuth2AuthorizationRequest.Builder allowing for further customizations.
+/**
+  * Sets the Consumer to be provided the 
+  * {@code OAuth2AuthorizationRequest.Builder} 
+  * allowing for further customizations.
+  */
 void setAuthorizationRequestCustomizer(java.util.function.Consumer<OAuth2AuthorizationRequest.Builder> authorizationRequestCustomizer)	
 
 /**
@@ -65,15 +78,18 @@ private OAuth2AuthorizationRequest resolve(HttpServletRequest request, String re
 	if (registrationId == null) {
 		return null;
 	}
-	
-	// Find if the Client(OUR SPRING APPLICATION) is registered on third party application or not  
+
+	/**
+	  * Find if the Client(OUR SPRING APPLICATION) 
+	  * is registered on third party application or not  
+	  */
 	ClientRegistration clientRegistration = this.clientRegistrationRepository.findByRegistrationId(registrationId);
 	if (clientRegistration == null) {
 		throw new IllegalArgumentException("Invalid Client Registration with Id: " + registrationId);
 	}
 	
 	/**
-	  * Create Oauth2AuthorizationRequest's extra attributes 
+	  * Create {@code Oauth2AuthorizationRequest}'s extra attributes 
 	  * via {@code ClientRegistration} and attributes
 	  * in {@code HttpServletRequest}
 	  */
@@ -81,12 +97,13 @@ private OAuth2AuthorizationRequest resolve(HttpServletRequest request, String re
 	
 	attributes.put(OAuth2ParameterNames.REGISTRATION_ID, clientRegistration.getRegistrationId());
 	
-	/**
-	  * via {@code OAuth2AuthorizationRequest#Builder} create OAuth2AuthorizationRequest
+	/****
+	  * via {@code OAuth2AuthorizationRequest#Builder} 
+	  * creates {@code OAuth2AuthorizationRequest}
 	  */
 	OAuth2AuthorizationRequest.Builder builder = getBuilder(clientRegistration, attributes);
 
-	/** 
+	/****
 	  * Expand ReirectUri to create new Redirect Uri
 	  * (Attributes in {@code HttpServletRequest} + uri in {@code ClientRegistration})
 	  */
