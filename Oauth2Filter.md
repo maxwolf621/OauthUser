@@ -69,37 +69,54 @@ private OAuth2AuthorizationRequest resolve(HttpServletRequest request, String re
 	// Find if the Client(OUR SPRING APPLICATION) is registered on third party application or not  
 	ClientRegistration clientRegistration = this.clientRegistrationRepository.findByRegistrationId(registrationId);
 	if (clientRegistration == null) {
-	
 		throw new IllegalArgumentException("Invalid Client Registration with Id: " + registrationId);
 	}
 	
-	// Create Oauth2AuthorizationRequest's extra attributes 
-	// via clientRegistration and attributes in httpservletrequest
+	/**
+	  * Create Oauth2AuthorizationRequest's extra attributes 
+	  * via {@code ClientRegistration} and attributes
+	  * in {@code HttpServletRequest}
+	  */
 	Map<String, Object> attributes = new HashMap<>();
 	
 	attributes.put(OAuth2ParameterNames.REGISTRATION_ID, clientRegistration.getRegistrationId());
+	
+	/**
+	  * via {@code OAuth2AuthorizationRequest#Builder} create OAuth2AuthorizationRequest
+	  */
 	OAuth2AuthorizationRequest.Builder builder = getBuilder(clientRegistration, attributes);
 
-	//Expand ReirectUri for redirect endpoint
-	//( the one in client registration + each attributes in requqest )
+	/** 
+	  * Expand ReirectUri to create new Redirect Uri
+	  * (Attributes in {@code HttpServletRequest} + uri in {@code ClientRegistration})
+	  */
 	String redirectUriStr = expandRedirectUri(request, clientRegistration, redirectUriAction);
 
 
-	// Build up a OAuth2AuthorizationRequest 
-	// clientId, authorized endpoint, redirect endpoint , scope, state, extra attributes 
+	/**
+	  * Build up a {@code OAuth2AuthorizationRequest} that contains 
+	  * <li> Endpoint for authorization Uri  
+	  *     {@code ClientRegistration.getProviderDetails()#getAuthorizationUri} </li>
+	  * <li> Endpoint for redirectUri 
+	  *     {@code expandRedirectUri(request, clientRegistration, redirectUriAction)}</li>
+	  * <li> clientId {@code ClientRegistration#getClientId()} </li>
+	  * <li>scope {@code clientRegistration#getScopes()}</li>
+	  * <li>state {@code StateGenerator#generateKey()}</li>
+	  * <li>extra attributes </li>
+	  */
 	builder.clientId(clientRegistration.getClientId()) // this authorizedRequest belongs who 
 			.authorizationUri(clientRegistration.getProviderDetails().getAuthorizationUri()) // authorized endpoint
-			.redirectUri(redirectUriStr) 	  // redirect endpoint (with scope, state) to the user 
+			.redirectUri(redirectUriStr)  // redirect endpoint (with scope, state) to the user 
 			.scopes(clientRegistration.getScopes())
 			.state(this.stateGenerator.generateKey())
-			.attributes(attributes);          //  attributes ( registration id, ... etc ...)
+			.attributes(attributes);   //  attributes ( registration id, ... etc ...)
 	
 	this.authorizationRequestCustomizer.accept(builder);
 	return builder.build();
 }
 ```
 
-#### `expandRedirectUri`
+#### `expandRedirectUri` 
 
 ```diff
 expandRedirectUri = URI_ClientRegistration + HttpServletRequest's Attributes
@@ -109,7 +126,7 @@ expandRedirectUri = URI_ClientRegistration + HttpServletRequest's Attributes
 ![image](https://user-images.githubusercontent.com/68631186/122837983-a7f57a00-d327-11eb-91c6-beef66472fd6.png)  
 
 ```java 
-/**
+/*
  * Expands the {@link ClientRegistration#getRedirectUri()} with following provided variables:
  * <li> baseUrl (e.g. https://localhost/app)            </li>
  * <li> baseScheme (e.g. https)                         </li>      
@@ -118,27 +135,28 @@ expandRedirectUri = URI_ClientRegistration + HttpServletRequest's Attributes
  * <li> basePath (e.g. /app)                            </li> 
  * <li> registrationId (e.g. google, facebook, github)  </li> 
  * <li> action (e.g. login)                             </li>
- * <li> Null variables are provided as empty string
- * Default redirectUri is: 
- * {@code org.springframework.security.config.oauth2.client.CommonOAuth2Provider#DEFAULT_REDIRECT_URL}
+ * <li> Null variables are provided as empty string     </lI>
+ * @param request Attributes for expanding
+ * @param clientRegistration get default redirect uri
+ * @param action action for redirect Uri
+ * <p> Default redirectUri is: 
+ * {@link org.springframework.security.config.oauth2.client.CommonOAuth2Provider#DEFAULT_REDIRECT_URL} </p>
  */
 private static String expandRedirectUri(HttpServletRequest request, 
                                         ClientRegistration clientRegistration,
 					String action) {
 	
-	/**
-	  * <li> clientRegistration : Get default reditrect uri </li>
-	  * <li> request : 
-	  *      Get the attributes we need for exapnding 
-	  *      default redirecturi that fetched from clientRegistration </li>
-	  */
-
-        // Map<String,Strig> attributes from httpServletrequest and clientRegistration
+        /**
+	 * Map<String,Strig> attributes from 
+	 * {@code HttpServletrequest} 
+	 * and {@code ClientRegistration}
+	 */
 	Map<String, String> uriVariables = new HashMap<>();
 	uriVariables.put("registrationId", clientRegistration.getRegistrationId());
 	
 	/**
-	  * {@code UrlUtils} build httUrl based on {@code HttpServletRequest}
+	  * {@code UrlUtils} sort attributes in {@code HttpServletRequest} to 
+	  * build up {@code UriCponents} uri-components 
 	  */
 	UriComponents uriComponents = UriComponentsBuilder.fromHttpUrl(UrlUtils.buildFullRequestUrl(request))
 			.replacePath(request.getContextPath())
@@ -147,7 +165,8 @@ private static String expandRedirectUri(HttpServletRequest request,
 			.build();
 	
 	/**
-	 *  using {@code UriComponents} helps us get Attibutes in the {@code HttpServletRequest} 
+	 * {@code UriComponents} helps us 
+	 * get attibutes in the {@code HttpServletRequest} 
 	 */
 	String scheme = uriComponents.getScheme();  // e.g. `https`
 	uriVariables.put("baseScheme", (scheme != null) ? scheme : "");
@@ -173,18 +192,19 @@ private static String expandRedirectUri(HttpServletRequest request,
 	/**
 	  * <p> Form a new <pre> (RedirectUri) + (Urivariable) </pre> Uri 
 	  *     RedirectUri : <pre> {baseScheme}://{baseHost}{basePort}{basePath}. </pre></p>
+	  * 
 	  * <p> Get {@code RedirectUri} from {@code clientRegistration} 
 	  *     And Expand it with attributes that extract from {@code HttpServletRequest} 
 	  *     and {@code clientRegistration} </p>
 	  */
-	return UriComponentsBuilder
-			.fromUriString(clientRegistration.getRedirectUri())
+	return UriComponentsBuilder.fromUriString(clientRegistration.getRedirectUri())
 		        .buildAndExpand(uriVariables)
 			.toUriString();
 }
 ```
 
 Usage of `UrlUtil`
+- To build `HttpServletRequest` to Url
 ```java
 public final class UrlUtil{
 	// ...
@@ -198,27 +218,35 @@ public final class UrlUtil{
 			       r.getQueryString());
 	}
 }
+```
 
+To get URI of `HttpServletRequest`
+```java
 /**
-  * To Get URI or URL 
-  */
+  * The method {@code getRequestURI} in HttpServletRequest
+  */  
 public interface HttpServletRequest extends ServletRequest {
+    //....
+
     /**
-     * <p> Returns the part of this request's URL from the protocol
-     * name up to the query string in the first line of the HTTP request. </p>
-     * <p> The web container does not decode this String. </p>
+     * <p> To reconstruct an URL with a scheme and host, 
+     *     use {@link HttpUtils#getRequestURL}. 
+     * </p>
+     * <p> Return the part of this request's URL from the protocol
+     * 	   name up to the query string in the first line of the HTTP request. 
+     * </p>
+     * <p> The web container does not decode this String. 
+     * </p>
      *
-     * <p> For example: </p>
+     * <p> For example
      * <table summary="Examples of Returned Values">
      * <tr align=left><th> First line of HTTP request </th>
      * <tr><td>	           POST /some/path.html HTTP/1.1<td>	<td>	/some/path.html
      * <tr><td>	           GET http://foo.bar/a.html HTTP/1.0   <td><td>/a.html
      * <tr><td>	           HEAD /xyz?a=b HTTP/1.1		<td><td>/xyz
+     * </p>
      *
-     * <p> To reconstruct an URL with a scheme and host, 
-     *     use {@link HttpUtils#getRequestURL}. </p>
-     *
-     * @return a <code>String</code> containing
+     * @return {@code String} containing
      *	       the part of the URL from the
      *	       protocol name up to the query string
      */
@@ -227,17 +255,20 @@ public interface HttpServletRequest extends ServletRequest {
     /**
      * <p> The returned URL contains a `protocol`, `server name`, `port`
      * `number`, and `server path`, but it does not include query
-     * string parameters.</p>
+     * string parameters.
+     * </p>
      *
-     * Because this method returns a <code>StringBuffer</code>,
+     * <p> Because this method returns a {@code StringBuffer},
      * not a string, you can modify the URL easily, for example,
-     * to append query parameters.
+     * to {@code append(String)} query parameters. 
+     * </p>
      *
      * <p>This method is useful for creating redirect messages
      * and for reporting errors.
+     * </p>
      *
-     * @return		a <code>StringBuffer</code> object containing
-     *			the reconstructed URL
+     * @return a <code>StringBuffer</code> object containing
+     *	       the reconstructed URL
      */
     public StringBuffer getRequestURL();
 
@@ -277,6 +308,9 @@ public class HttpUtils {
         //String servletPath = req.getServletPath ();
         //String pathInfo = req.getPathInfo ();
 
+	/**
+	 * {@code StringBuffer} is not immutable
+	 */
         url.append (scheme);  // http, https
         url.append ("://");
         url.append (req.getServerName ());
@@ -299,10 +333,15 @@ public class HttpUtils {
 }
 ```
 
-### Redirct to Authorized page
+### Using Spring API redircts the user to Authorized page via `OAuth2AuthorizationRequest#getGrantType()`
 [FORWARD and REDIRECT](https://stackoverflow.com/questions/20371220/what-is-the-difference-between-response-sendredirect-and-request-getrequestdis)  
 
 ```java
+/**
+  * Saving {@code #Oauth2AuthorizationRequest} in {@code #AuthorizationRequestRepository} (SESSION)
+  * Redirect use via Spring API using 
+  * {@code AuthorizationRedirectStrategy#sendRedirect(HttpServletRequest, HttpServerletResponse, authorizationRequest.getAuthorizationRequestUri()) 
+  */
 private void sendRedirectForAuthorization(HttpServletRequest request, HttpServletResponse response,
                                           OAuth2AuthorizationRequest authorizationRequest) throws IOException {
     // check the Auhtorization Grant Type
@@ -315,7 +354,8 @@ private void sendRedirectForAuthorization(HttpServletRequest request, HttpServle
     /**
      * <p> {@code authorizationRedirectStrategy} is {@code DefaultRedirectStrategy} </p>
      * <p> {@code authorizationRequest.getAuthorizationRequestUri()}
-     *     third party appliction login page (Wart daruaf, Der Nutzer gibt password/emaill ein) </p>
+     *     third party appliction login page 
+     *	   (Wart daruaf, Der Nutzer gibt password/emaill ein) </p>
      */
     this.authorizationRedirectStrategy.sendRedirect(request, response, authorizationRequest.getAuthorizationRequestUri());
 }
@@ -333,16 +373,12 @@ public void sendRedirect(HttpServletRequest request,
         logger.debug("Redirecting to '" + redirectUrl + "'");
     }
  
-    
     // To the page that user from third party application to grant or deny the access
     response.sendRedirect(redirectUrl);
 }
 ```
 
 ## [`OAuth2LoginAuthenticationFilter`](https://zhuanlan.zhihu.com/p/100625981) handles for
-
-[reference](https://www.cnblogs.com/felordcn/p/13992477.html)  
-
 
 1. If the user grants the client can fetch his resource from third party applocation,then this filter will add Authorized Grant Code, state ...etc in the `redirect_url`  
 
@@ -590,63 +626,63 @@ final class OAuth2AuthorizationResponseUtils {
 ```java
 public class OAuth2LoginAuthenticationProvider implements AuthenticationProvider {
     
-    //...
-    
-    @Override
-  public Authentication authenticate(Authentication authentication) throws AuthenticationException {
-    OAuth2LoginAuthenticationToken authorizationCodeAuthentication = (OAuth2LoginAuthenticationToken) authentication;
+	  //...
 
-    if (authorizationCodeAuthentication.getAuthorizationExchange()
-      .getAuthorizationRequest().getScopes().contains("openid")) {
-      
-      
-      return null;
-    }
+	  @Override
+	  public Authentication authenticate(Authentication authentication) throws AuthenticationException {
+	    OAuth2LoginAuthenticationToken authorizationCodeAuthentication = (OAuth2LoginAuthenticationToken) authentication;
 
-    OAuth2AccessTokenResponse accessTokenResponse;
-    try {
-      OAuth2AuthorizationExchangeValidator.validate(
-          authorizationCodeAuthentication.getAuthorizationExchange());
-      
-      accessTokenResponse = this.accessTokenResponseClient.getTokenResponse(
-          new OAuth2AuthorizationCodeGrantRequest(
-              authorizationCodeAuthentication.getClientRegistration(),
-              authorizationCodeAuthentication.getAuthorizationExchange()));
+	    if (authorizationCodeAuthentication.getAuthorizationExchange()
+	      .getAuthorizationRequest().getScopes().contains("openid")) {
 
-    } catch (OAuth2AuthorizationException ex) {
-      OAuth2Error oauth2Error = ex.getError();
-      throw new OAuth2AuthenticationException(oauth2Error, oauth2Error.toString());
-    }
-    
-         
-    OAuth2AccessToken accessToken = accessTokenResponse.getAccessToken();
-    Map<String, Object> additionalParameters = accessTokenResponse.getAdditionalParameters();
-    
-         
-    OAuth2User oauth2User = this.userService.loadUser(new OAuth2UserRequest(
-        authorizationCodeAuthentication.getClientRegistration(), accessToken, additionalParameters));
 
-    Collection<? extends GrantedAuthority> mappedAuthorities =
-      this.authoritiesMapper.mapAuthorities(oauth2User.getAuthorities());
-    
-         
-    OAuth2LoginAuthenticationToken authenticationResult = new OAuth2LoginAuthenticationToken(
-      authorizationCodeAuthentication.getClientRegistration(),
-      authorizationCodeAuthentication.getAuthorizationExchange(),
-      oauth2User,
-      mappedAuthorities,
-      accessToken,
-      accessTokenResponse.getRefreshToken());
-    authenticationResult.setDetails(authorizationCodeAuthentication.getDetails());
+	      return null;
+	    }
 
-    return authenticationResult;
-  }
-  
-  //....
-}
+	    OAuth2AccessTokenResponse accessTokenResponse;
+	    try {
+	      OAuth2AuthorizationExchangeValidator.validate(
+		  authorizationCodeAuthentication.getAuthorizationExchange());
+
+	      accessTokenResponse = this.accessTokenResponseClient.getTokenResponse(
+		  new OAuth2AuthorizationCodeGrantRequest(
+		      authorizationCodeAuthentication.getClientRegistration(),
+		      authorizationCodeAuthentication.getAuthorizationExchange()));
+
+	    } catch (OAuth2AuthorizationException ex) {
+	      OAuth2Error oauth2Error = ex.getError();
+	      throw new OAuth2AuthenticationException(oauth2Error, oauth2Error.toString());
+	    }
+
+
+	    OAuth2AccessToken accessToken = accessTokenResponse.getAccessToken();
+	    Map<String, Object> additionalParameters = accessTokenResponse.getAdditionalParameters();
+
+
+	    OAuth2User oauth2User = this.userService.loadUser(new OAuth2UserRequest(
+		authorizationCodeAuthentication.getClientRegistration(), accessToken, additionalParameters));
+
+	    Collection<? extends GrantedAuthority> mappedAuthorities =
+	      this.authoritiesMapper.mapAuthorities(oauth2User.getAuthorities());
+
+
+	    OAuth2LoginAuthenticationToken authenticationResult = new OAuth2LoginAuthenticationToken(
+				      authorizationCodeAuthentication.getClientRegistration(),
+				      authorizationCodeAuthentication.getAuthorizationExchange(),
+				      oauth2User,
+				      mappedAuthorities,
+				      accessToken,
+				      accessTokenResponse.getRefreshToken());
+
+	    authenticationResult.setDetails(authorizationCodeAuthentication.getDetails());
+
+	    return authenticationResult;
+	  }
+
+	  //....
+	}
 
 ```
-
 
 #### Conclusion of the filters
 
