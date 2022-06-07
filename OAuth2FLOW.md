@@ -5,7 +5,7 @@
 [Attributes of Different Third Parties](https://blog.yorkxin.org/posts/oauth2-implementation-differences-among-famous-sites.html)
 
 ## Basic Oauth2 User Login Flow via GITHUB
-- [SpringBoot github oauth2login ]](https://medium.com/swlh/spring-boot-oauth2-login-with-github-88b178e0c004)  
+- [SpringBoot github oauth2login](https://medium.com/swlh/spring-boot-oauth2-login-with-github-88b178e0c004)  
     - [Demo](https://github.com/maxwolf621/OauthUser/tree/main/demo)  
 
 # Oauth2 FLOW
@@ -14,7 +14,7 @@
 User         Client(frontend)   SpringAPI         Provider
  '-----1------------+---------------+------->-------'
                                     +<------2-------'
-	                                '-------3------>+
+	                            '-------3------>+
                                     +<------4-------'
                                     '-------5-------+
 ```
