@@ -31,27 +31,25 @@ public class OAuth2LoginSecurityConfig extends WebSecurityConfigurerAdapter {
 
 ### A Custom Oauth2 Login Flow
  
-1. The OAuth2 login flow will be initiated by the frontend client by sending the user to the endpoint 
- 	> `http://localhost:8080/oauth2/authorize/{provider}?redirect_uri=<redirect_uri_after_login>`.
-	> The `{provider}` path parameter is one of `GOOGLE`,`GITHUB` or other third party application. 
-	> The `redirect_uri` is the URI to which the user will be redirected once the authentication is successful. (e.g. `localhost:4200/oauth2/`)
+1. The OAuth2 login flow will be initiated by the frontend client by sending the user to the endpoint `http://localhost:8080/oauth2/authorize/{provider}?redirect_uri=<redirect_uri_after_login>`.
+   - The `{provider}` path parameter is one of `GOOGLE`,`GITHUB` or other third party application. 
+   - The `redirect_uri` is the URI to which the user will be redirected once the authentication is successful. (e.g. `localhost:4200/oauth2/`)
 
-2. On receiving the `OAuth2AuthorizationRequest` object, Spring Security’s client(Our Spring Application) will redirect the user to the (Authorized Endpoint) AuthorizationUrl of the supplied provider.
+2. On receiving the `OAuth2AuthorizationRequest` object, Spring Security’s client(Our Spring Application) will redirect the user to the (Authorized Endpoint) Authorization Url of the supplied provider.
 
-3. All the states (attributes from `HttpServletRequest`) associated/related to the authorization request is saved using the `authorizationRequestRepository` specified in the SecurityConfig.
+3. All the states (attributes from `HttpServletRequest`) associated/related to the authorization request is saved via `authorizationRequestRepository` specified in the SecurityConfig.
 
 4. The user now allows/denies permission to your app on the provider’s page. 
-	 > If the user allows permission to the app(allowing to use third party account to login the app),  the user will redirect to the callback url (`http://localhost:8080/oauth2/callback/{provider}`) with query parameters (e.g. `state` , `code`, `redrect_url`)
-	 > If the user denies the permission, he/her will be redirected to `http://localhost:8080/oauth2/callback/{provider}` with an `error` query parameter
+   - If the user allows the permission to the app(allowing to 3rd party account to login the client), the user will redirect to the callback url (`http://localhost:8080/oauth2/callback/{provider}`) with query parameters (e.g. `state` , `code`, `redirect_url`)
+   - If the user denies the permission then redirected to `http://localhost:8080/oauth2/callback/{provider}` with an `error` query parameter
 
-5. If the OAuth2 callback results in an error, Spring security will invoke the `oAuth2AuthenticationFailureHandler` specified in the above SecurityConfig(e.g. `failureHandler(oAuth2AuthenticationFailureHandler)`. 
-	> Else If the OAuth2 callback is successful and it contains the authorization code, **Spring Security will exchange the authorization_code for an access_token and invoke the `OAuth2UserService` specified in the SecurityConfig.**
+5. If the OAuth2 callback results in an error, Spring security will invoke the `oAuth2AuthenticationFailureHandler` specified in the above SecurityConfig(e.g. `failureHandler(oAuth2AuthenticationFailureHandler)`.  
+Else If the OAuth2 callback is successful and it contains the authorization code, **Spring Security will exchange the authorization_code for an access_token and invoke the `OAuth2UserService` specified in the SecurityConfig.**
 
-6. The `OAuth2UserService` retrieves the details of the authenticated user and creates a new entry in the database or updates the existing entry (with email).
+6. After Authorization is granted, client uses the `OAuth2UserService` retrieves the details of the authenticated user and creates a new entry in the database or updates the existing entry (with email).
 
-7. Upon a successful authentication, the `oAuth2AuthenticationSuccessHandler` is invoked. 
-	 > We can create a JWT authentication token for the user by putting `redirect_uri` along with the JWT token in a query string. (e.g. `frontned:/oauth2/?token= ...`)
-
+7. Upon a successful authentication, the `oAuth2AuthenticationSuccessHandler` is invoked.  
+We can create a JWT authentication token for the user by putting `redirect_uri` along with the JWT token in a query string. (e.g. `frontend:/oauth2/?token= ...`)
 
 ## A custom Login Page
 
@@ -68,26 +66,32 @@ protected void configure(HttpSecurity http) throws Exception {
 				//....
 }
 ```
-- Need to provide a `@Controller` with a `@RequestMapping("/login/oauth2")` that is capable of rendering the custom login page.
+- Must provide a `@Controller` class with a `@RequestMapping("/login/oauth2")` that is capable of rendering the custom login page.
 - Configuring `oauth2Login().authorizationEndpoint().baseUri()` is OPTIONAL. However, if you choose to customize it, ensure the link to each OAuth Client matches the `authorizationEndpoint().baseUri()`.
 
 ## redirection Endpoint
 
-**The Redirection Endpoint is used by the Authorization Server for returning the Authorization Response** (which contains the authorization credentials and will be intercepted by the `LoginAuthenticationfilter`) to the client
+**The Redirection Endpoint is used by the Authorization Server for returning the Authorization Response** (which contains the authorization credentials and will be intercepted by the `LoginAuthenticationFilter`) to the client
 
-The default Authorization Response baseUri
-```diff
+The default Authorization Response baseURI
+```
 /login/oauth2/code/*
 ```
 
-We can customize it to any other URL of our choice  for example `(/oauth2/callback/)`.  
+### Configure Redirect URI
+
+We can customize it to any other URL of our choice 
+for example 
+```
+/oauth2/callback/
+```
 
 Set A custom redirect-uri in `application.properties`
 ```xml
 spring.security.oauth2.client.registration.google.redirect-uri=http://localhost:8080/oauth2/callback/google
 ```
 
-Configure it in our spring security 
+Or Configure it in our spring security 
 ```java
 protected void configure(HttpSecurity http) throws Exception {
         http.authorizeRequests()
@@ -100,9 +104,9 @@ protected void configure(HttpSecurity http) throws Exception {
 
 ## UserInfo Endpoint (An AuthenticationManager)
 
-It retrieve the authenticated Oauth2 User resource (第三方使用者的資源)
+It retrieve the authenticated Oauth2User resource
 
-The UserInfo Endpoint includes a number of configuration options,
+The UserInfo Endpoint includes a number of configuration options
 - Mapping Authenticated User from 3rd Party Authorities for this application
 - Configuring a Custom OAuth2User
 - OAuth 2.0 UserService
@@ -110,22 +114,22 @@ The UserInfo Endpoint includes a number of configuration options,
 
 ```java
 @Override
-	protected void configure(HttpSecurity http) throws Exception {
-		htt.oauth2Login()
-		   .userInfoEndpoint()
-		     // set up the Authorities of this application
-         .userAuthoritiesMapper(this.userAuthoritiesMapper()) 
-         
-		     // retrieve the authentticated user resource from third party
-         .userService(this.oauth2UserService())
-		   .oidcUserService(this.oidcUserService())
-	}
+protected void configure(HttpSecurity http) throws Exception {
+http.oauth2Login()
+   .userInfoEndpoint()
+     // set up the Authorities of this application
+       .userAuthoritiesMapper(this.userAuthoritiesMapper())    
+     // retrieve the authenticated user resource from third party
+       .userService(this.oauth2UserService())
+   .oidcUserService(this.oidcUserService())
+}
 ```
 
 
 ### Configure a custom `.userAuthoritiesMapper(this.userAuthoritiesMapper)` for Set of `GrantedAuthority` and User Info
 
 After the user successfully authenticates with the OAuth 2.0 Provider, the `OAuth2User.getAuthorities()` (or `OidcUser.getAuthorities()`) may be mapped to a new set of GrantedAuthority instances, which will be supplied to `OAuth2AuthenticationToken` when completing the authentication.
+
 ```java
 	private GrantedAuthoritiesMapper userAuthoritiesMapper() {
 		return (authorities) -> {
@@ -205,7 +209,7 @@ protected void configure(HttpSecurity http) throws Exception {
 		.oauth2Login()
 			.userInfoEndpoint()
 				.customUserType(GitHubOAuth2User.class, "github")
-				...
+				//...
 }
 ```
 
@@ -244,26 +248,24 @@ public class GitHubOAuth2User implements OAuth2User {
 ### Configure a custom `.userService(this.OurCustomUserService())` for an UserInfo from 3rd party application
 
 A `DefaultOAuth2UserService` is an implementation of an `OAuth2UserService` that supports standard OAuth 2.0 Provider’s.
-> `OAuth2UserService` obtains the user attributes of the end-user from the UserInfo Endpoint (by using the access token granted to the client during the authorization flow) and returns an Authenticated Principal in the form of an OAuth2User.
+- `OAuth2UserService` obtains the user attributes of the end-user from the UserInfo Endpoint (by using the access token granted to the client during the authorization flow) and returns an Authenticated Principal in the form of an OAuth2User.
 
-In spring Security
 ```java
-  //...
-	@Override
-	protected void configure(HttpSecurity http) throws Exception {
-		http
-			.oauth2Login()
-				.userInfoEndpoint()
-					.userService(this.oauth2UserService())
-					...
-	}
+//...
+@Override
+protected void configure(HttpSecurity http) throws Exception {
+    http
+        .oauth2Login()
+            .userInfoEndpoint()
+                .userService(this.oauth2UserService())
+			//...
+}
 
-  
-	private OAuth2UserService<OAuth2UserRequest, OAuth2User> oauth2UserService() {
-		return new CustomOAuth2UserService();
-  }
+
+private OAuth2UserService<OAuth2UserRequest, OAuth2User> oauth2UserService() {
+    return new CustomOAuth2UserService();
+}
 ```
-
 
 A custom OAuth2 User Service setup
 ```java
