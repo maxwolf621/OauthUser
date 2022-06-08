@@ -1,5 +1,26 @@
 # Oauth2 LogIn WebSecurity Configuration
 - [Protocol Endpoints](https://datatracker.ietf.org/doc/html/rfc6749#section-3)  
+- [Configure the authorization of the ROLE](https://stackoverflow.com/questions/36233910/custom-http-security-configuration-along-with-oauth2-resource-server)
+
+## SetUp
+
+### in Maven  
+```xml
+<dependency>
+  <groupId>org.springframework.boot</groupId>
+  <artifactId>spring-boot-starter-oauth2-client</artifactId>
+</dependency>
+```
+
+### Add client-registration details in `application.properties`
+
+```
+spring.security.oauth2.client.registration.github.client-id = 
+spring.security.oauth2.client.registration.github.client-secret =
+spring.security.oauth2.client.registration.github.redirect-uri = 
+```
+
+### SpringBoot Web Security OAuth2 Configuration  
 
 ![image](https://user-images.githubusercontent.com/68631186/122627719-db47c700-d0e3-11eb-9c9b-9c8f3743c623.png)  
 ```java
