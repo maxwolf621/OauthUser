@@ -45,15 +45,16 @@ public class OAuth2AuthorizationRequestRedirectFilter extends OncePerRequestFilt
 ```
 #### Resolver
 
-```diff
+```java
 DefaultOAuth2AuthorizationRequestResolver
 +--extract {@code registrationId} from "/oauth2/authorization/{registrationId}"
-   '--use {@code registrationId} 
-      build {@code Oauth2AuthorizationRequest} 
+   '--use registrationId
+      build Oauth2AuthorizationRequest 
       for the associated ClientRegistration
 ```
-- The default implementation `DefaultOAuth2AuthorizationRequestResolver` matches on the (default) path `/oauth2/authorization/{registrationId}` extracting the `registrationId` (from `ClientRegistration`) and using it to build the `OAuth2AuthorizationRequest` for the associated `ClientRegistration`.  
-  > **`DefaultOAuth2AuthorizationRequestResolver` determines to** give a grant or not and then return instance of the `AuthorizaionRequest` to filter.
+- The default implementation `DefaultOAuth2AuthorizationRequestResolver` matches on the (default) path `/oauth2/authorization/{registrationId}` extracting the `registrationId` (from `ClientRegistration`) and new the `OAuth2AuthorizationRequest` for the associated `ClientRegistration`.  
+
+**`DefaultOAuth2AuthorizationRequestResolver` determines to** give a grant or not and then return instance of the `AuthorizationRequest` to `OAuth2AuthorizationRequestRedirectFilter` 
 
 ```java
 /**
@@ -63,12 +64,6 @@ DefaultOAuth2AuthorizationRequestResolver
   */
 OAuth2AuthorizationRequest resolve(javax.servlet.http.HttpServletRequest request)	
 
-/**
-  * @return the OAuth2AuthorizationRequest 
-  *         resolved from the provided 
-  *         {@code HttpServletRequest} 
-  *         or {@code null} if not available.
-  */
 OAuth2AuthorizationRequest resolve(javax.servlet.http.HttpServletRequest request, java.lang.String registrationId)	
 
 /**
@@ -78,25 +73,14 @@ OAuth2AuthorizationRequest resolve(javax.servlet.http.HttpServletRequest request
   */
 void setAuthorizationRequestCustomizer(java.util.function.Consumer<OAuth2AuthorizationRequest.Builder> authorizationRequestCustomizer)	
 
-/**
- *  resolve {@code HttpServletRequest} 
- *  to 
- *  {@code AuthorizationRequest}
- *  via
- *  {@code Map<String,Object>}
- *  {@code OAuth2AuthorizationRequest.Builder}
- *  {@code expandRedirectUri}
- */
 private OAuth2AuthorizationRequest resolve(HttpServletRequest request, String registrationId, String redirectUriAction) {
 	
 	if (registrationId == null) {
 		return null;
 	}
-
-	/**
-	  * is registered on third party application or not  
-	  */
+ 
 	ClientRegistration clientRegistration = this.clientRegistrationRepository.findByRegistrationId(registrationId);
+
 	if (clientRegistration == null) {
 		throw new IllegalArgumentException("Invalid Client Registration with Id: " + registrationId);
 	}
@@ -110,38 +94,28 @@ private OAuth2AuthorizationRequest resolve(HttpServletRequest request, String re
 	
 	attributes.put(OAuth2ParameterNames.REGISTRATION_ID, clientRegistration.getRegistrationId());
 	
-	/****
-	  * via {@code OAuth2AuthorizationRequest#Builder} 
-	  * creates {@code OAuth2AuthorizationRequest}
-	  */
+
+	// builder of OAuth2AuthorizationRequest
 	OAuth2AuthorizationRequest.Builder builder = getBuilder(clientRegistration, attributes);
 
 	/****
-	  * Expand RedirectUri to create new Redirect Uri
-	  * (Attributes in {@code HttpServletRequest} + uri in {@code ClientRegistration})
+	  * Expand RedirectUri 
+	  * (Attributes in HttpServletRequest + Client Registration)
 	  */
 	String redirectUriStr = expandRedirectUri(request, clientRegistration, redirectUriAction);
 
 
 	/**
-	  * Build up a {@code OAuth2AuthorizationRequest} 
-	  * via {@code OAuth2AuthorizationRequest.Builder} that contains 
-	  * <li> Endpoint for authorization Uri  
-	  *     {@code ClientRegistration.getProviderDetails()#getAuthorizationUri} </li>
-	  * <li> Endpoint for redirectUri 
-	  *     {@code expandRedirectUri(request, clientRegistration, redirectUriAction)}</li>
-	  * <li> clientId {@code ClientRegistration#getClientId()} </li>
-	  * <li>scope {@code clientRegistration#getScopes()}</li>
-	  * <li>state {@code StateGenerator#generateKey()}</li>
-	  * <li>extra attributes </li>
+	  * Build up a Auth2AuthorizationRequest
 	  */
 	builder.clientId(clientRegistration.getClientId()) // this authorizedRequest belongs who 
-			.authorizationUri(clientRegistration.getProviderDetails().getAuthorizationUri()) // authorized endpoint
-			.redirectUri(redirectUriStr)  // redirect endpoint (with scope, state) to the user 
-			.scopes(clientRegistration.getScopes())
-			.state(this.stateGenerator.generateKey())
-			.attributes(attributes);   //  attributes ( registration id, ... etc ...)
+		   .authorizationUri(clientRegistration.getProviderDetails().getAuthorizationUri()) // authorized endpoint
+		   .redirectUri(redirectUriStr)  // redirect endpoint (with scope, state) to the user 
+		   .scopes(clientRegistration.getScopes()) 
+		   .state(this.stateGenerator.generateKey())
+		   .attributes(attributes);   //  attributes ( registration id, ... etc ...)
 	
+	// Accept the Customized authorization request 
 	this.authorizationRequestCustomizer.accept(builder);
 	return builder.build();
 }
@@ -149,13 +123,7 @@ private OAuth2AuthorizationRequest resolve(HttpServletRequest request, String re
 
 #### `expandRedirectUri` 
 
-```diff
-expandRedirectUri = URI_ClientRegistration + HttpServletRequest's Attributes
-````
-- Generate Expand Redirect URI (e.g. URI from `ClientRegistration` + `HttpServletRequest`'s Attributes)   
-
-![image](https://user-images.githubusercontent.com/68631186/122837983-a7f57a00-d327-11eb-91c6-beef66472fd6.png)     
-
+Generate Expand Redirect URI (e.g. URI from `ClientRegistration` + `HttpServletRequest`'s Attributes)   
 ```java
 /**
  * Expands the {@link ClientRegistration#getRedirectUri()} with following provided variables:
@@ -167,45 +135,45 @@ expandRedirectUri = URI_ClientRegistration + HttpServletRequest's Attributes
  * <li> registrationId (e.g. google, github ...)        </li> 
  * <li> action (e.g. login)                             </li>
  * <li> Null variables are provided as empty string     </lI>
+ * 
  * @param request Attributes for expanding
  * @param clientRegistration get default redirect uri
  * @param action action for redirect Uri
- * <p> Default redirectUri is: 
- * {@link org.springframework.security.config.oauth2.client.CommonOAuth2Provider#DEFAULT_REDIRECT_URL} </p>
+ * 
+ * Default redirectUri is: 
+ * org.springframework.security.config.oauth2.client.CommonOAuth2Provider#DEFAULT_REDIRECT_URL
  */
-private static String expandRedirectUri(HttpServletRequest request, 
-                                        ClientRegistration clientRegistration,
-                                        String action) {
+private static String expandRedirectUri(
+	HttpServletRequest request, 
+	ClientRegistration clientRegistration,
+	String action) {
 	
     /**
 	 * new a Map<String,String> HashMap instance 
      * to store attributes from 
-	 * {@code HttpServletRequest} 
-	 * and {@code ClientRegistration}
+	 * HttpServletRequest
+	 * and ClientRegistration
 	 */
 	Map<String, String> uriVariables = new HashMap<>();
 	
     // store registrationId
-    uriVariables.put("registrationId", clientRegistration.getRegistrationId());
+    uriVariables.put("registrationId", 
+					 clientRegistration.getRegistrationId());
 	
 
 	/**
-	  * {@code UrlUtils} sort attributes in {@code HttpServletRequest}  
-	  * for building {@code UriComponents} type uri-components
+	  * uri-components from HttpServletRequest 
 	  */
 	UriComponents uriComponents = UriComponentsBuilder
                                     .fromHttpUrl(
+										// {@code UrlUtils} sort attributes in {@code HttpServletRequest}  
                                         UrlUtils.buildFullRequestUrl(request))
 			                        .replacePath(request.getContextPath())
 			                        .replaceQuery(null)
 			                        .fragment(null)
 			                        .build();
 	
-	/**
-	 * {@code UriComponents} helps us 
-	 * get attributes in the {@code HttpServletRequest} 
-     * easily 
-	 */
+	
 	String scheme = uriComponents.getScheme();  // e.g. `https`
 	uriVariables.put("baseScheme", (scheme != null) ? scheme : "");
 	
@@ -227,23 +195,23 @@ private static String expandRedirectUri(HttpServletRequest request,
 	uriVariables.put("baseUrl", uriComponents.toUriString());
 	uriVariables.put("action", (action != null) ? action : ""); // login , sign up etc ...
 	
-	/**
-	  * <p> Form a new <pre> (RedirectUri) + (UriVariable) </pre> Uri 
-	  *     RedirectUri : <pre> {baseScheme}://{baseHost}{basePort}{basePath}. </pre></p>
-	  * 
-	  * <p> Get {@code RedirectUri} from {@code clientRegistration} 
-	  *     And Expand it with attributes that extract from {@code HttpServletRequest} 
-	  *     and {@code clientRegistration} </p>
-	  */
-	return UriComponentsBuilder.fromUriString(clientRegistration.getRedirectUri())
-		        .buildAndExpand(uriVariables)
+
+	return UriComponentsBuilder
+			.fromUriString(
+				// RedirectUri :{baseScheme}://{baseHost}{basePort}{basePath}.
+				clientRegistration.getRedirectUri())
+			// Expand with Attributes in HttpServletRequest
+			// buildAndExpand(HashMap<T,K> httpServletRequestURIVariables)
+		    .buildAndExpand(uriVariables)
 			.toUriString();
 }
 ```
 
 ### `UrlUtil`
 
-To build `HttpServletRequest`'s each attribute `ServletPath`, `RequestURI` ... etc ... to Url
+![image](https://user-images.githubusercontent.com/68631186/122837983-a7f57a00-d327-11eb-91c6-beef66472fd6.png)     
+
+Sort each attribute in a HttpServletRequest Url
 ```java
 public final class UrlUtil{
 	// ...
@@ -252,38 +220,36 @@ public final class UrlUtil{
 	 *  Get Attributes from {@code HttpServletRequest} 
 	 */
 	public static String buildRequestUrl(HttpServletRequest r) {
-	return buildRequestUrl(r.getServletPath(), 
-                           r.getRequestURI(), 
-		                   r.getContextPath(), 
-                           r.getPathInfo(),
-			               r.getQueryString());
+		return buildRequestUrl(r.getServletPath(), 
+							   r.getRequestURI(), 
+							   r.getContextPath(), 
+							   r.getPathInfo(),
+							   r.getQueryString());
 	}
 
     //...
 }
 ```
 
-Get URI from `HttpServletRequest#getRequestURI()`
+#### `HttpServletRequest#getRequestURI`
+
+`HttpServletRequest#getRequestURI`'s return value contains `protocol`, `server name`, `port` ,`number`, and `server path` (no query parameters included)
+
 ```java
-/**
-  * {@code HttpServletRequest} method {@code getRequestURI} 
-  */  
 public interface HttpServletRequest extends ServletRequest {
+
     //....
 
     /**
-     * To reconstruct an URL with a scheme and host, 
-     *     use {@link HttpUtils#getRequestURL}. 
+     * To reconstruct an URL with a scheme and host
      * Return the part of this request's URL from the protocol
      * 	   name up to the query string in the first line of the HTTP request. 
      * The web container does not decode this String. 
      *
-     * For example
-     * <table summary="Examples of Returned Values">
-     * <tr align=left><th> First line of HTTP request </th>
-     * <tr><td>	           POST /some/path.html HTTP/1.1<td>	<td>	/some/path.html
-     * <tr><td>	           GET http://foo.bar/a.html HTTP/1.0   <td><td>/a.html
-     * <tr><td>	           HEAD /xyz?a=b HTTP/1.1		<td><td>/xyz
+     * For example Return Value
+     * POST  /some/path.html       HTTP/1.1   => /some/path.html
+     * GET   http://foo.bar/a.html HTTP/1.0   => /a.html
+     * HEAD  /xyz?a=b              HTTP/1.1	  => /xyz
      *
      * @return {@code String} containing
      *	       the part of the URL from the
@@ -292,21 +258,12 @@ public interface HttpServletRequest extends ServletRequest {
     public String getRequestURI();
 
     /**
-     * <p> The returned URL contains a `protocol`, `server name`, `port`
-     * `number`, and `server path`,
-     but it does not include query
-     * string parameters.
-     * </p>
+     * with {@code StringBuffer} the URL can be easily modified 
+	 * for example, {@code append(String)} query parameters. 
      *
-     * <p> Because this method returns a {@code StringBuffer},
-     * not a string, you can modify the URL easily, for example,
-     * to {@code append(String)} query parameters. 
-     * </p>
-     *
-     * <p>This method is useful for creating redirect messages
+     * This method is useful for creating redirect messages
      * and for reporting errors.
-     * </p>
-     *
+	 *
      * @return a <code>StringBuffer</code> object containing
      *	       the reconstructed URL
      */
@@ -315,25 +272,16 @@ public interface HttpServletRequest extends ServletRequest {
      //...
 }
 
-```
-```java 
+
 public class HttpUtils {
+   
    /**
-     * <p> Reconstructs the URL the client used to make the request,
-     * using information in the <code>HttpServletRequest</code> object. </p>
-     * <p> The returned URL contains a protocol, server name, port
+     *	 
+     * The returned URL contains a protocol, server name, port
      * number, and server path, but it does not include query
      * string parameters. </p>
      * 
-     * <p>Because this method returns a <code>StringBuffer</code>,
-     * not a string, you can modify the URL easily, for example,
-     * to append query parameters. </p>
-     *
-     * <p>This method is useful for creating redirect messages
-     * and for reporting errors. </p>
-     *
      * @param req	a {@code HttpServletRequest} object
-     *			containing the client's request
      * 
      * @return		a {@code StringBuffer} object containing
      *			the reconstructed URL
@@ -342,17 +290,14 @@ public class HttpUtils {
     
         StringBuffer url = new StringBuffer();
 	
-        String scheme = req.getScheme ();
-        int port = req.getServerPort ();
+        String scheme  = req.getScheme ();    // http, https
+        int port       = req.getServerPort ();
         String urlPath = req.getRequestURI();
 
         //String servletPath = req.getServletPath ();
         //String pathInfo = req.getPathInfo ();
 
-    	/**
-    	  * {@code StringBuffer} is not immutable
-    	  */
-        url.append (scheme);  // http, https
+        url.append (scheme);  
         url.append ("://");
         url.append (req.getServerName ());
   	
@@ -374,19 +319,23 @@ public class HttpUtils {
 }
 ```
 
-### Using Spring API redirects the user to Authorized page via `OAuth2AuthorizationRequest#getGrantType()`
-[FORWARD and REDIRECT](https://stackoverflow.com/questions/20371220/what-is-the-difference-between-response-sendredirect-and-request-getrequestdis)  
+### `OAuth2AuthorizationRequest#getGrantType()`
+- [FORWARD and REDIRECT](https://stackoverflow.com/questions/20371220/what-is-the-difference-between-response-sendredirect-and-request-getrequestdis)  
 
 ```java
 /**
-  * Saving {@code #Oauth2AuthorizationRequest} in {@code #AuthorizationRequestRepository} (SESSION)
-  * Redirect user-agent via 
+  * Saving {@code #Oauth2AuthorizationRequest} 
+  * via {@code #AuthorizationRequestRepository} (SESSION)
+  * 
+  * user-agent redirect via 
   * {@code AuthorizationRedirectStrategy#sendRedirect(HttpServletRequest, 
   *                                                   HttpServletResponse, 
   *                                                   authorizationRequest.getAuthorizationRequestUri()) 
   */
-private void sendRedirectForAuthorization(HttpServletRequest request, HttpServletResponse response,
+private void sendRedirectForAuthorization(HttpServletRequest request,
+										  HttpServletResponse response,
                                           OAuth2AuthorizationRequest authorizationRequest) throws IOException {
+
     // check the Authorization Grant Type
     if (AuthorizationGrantType.AUTHORIZATION_CODE.equals(authorizationRequest.getGrantType())) {
     	
@@ -396,19 +345,17 @@ private void sendRedirectForAuthorization(HttpServletRequest request, HttpServle
     
     /**
      * <p> {@code authorizationRedirectStrategy} is {@code DefaultRedirectStrategy} </p>
-     * <p> {@code authorizationRequest.getAuthorizationRequestUri()}
+     * {@code authorizationRequest.getAuthorizationRequestUri()}
      *     third party application login page 
      *	   (Wart daruaf, Der Nutzer gibt password/e-mail ein) </p>
      */
     this.authorizationRedirectStrategy.sendRedirect(request, response, authorizationRequest.getAuthorizationRequestUri());
 }
-```
 
-#### `sendRedirect`
-```java
 public void sendRedirect(HttpServletRequest request, 
                          HttpServletResponse response,
                          String url) throws IOException {
+
     String redirectUrl = calculateRedirectUrl(request.getContextPath(), url);
     redirectUrl = response.encodeRedirectURL(redirectUrl);
     
@@ -416,7 +363,6 @@ public void sendRedirect(HttpServletRequest request,
         logger.debug("Redirecting to '" + redirectUrl + "'");
     }
  
-    // To the page that user from third party application to grant or deny the access
     response.sendRedirect(redirectUrl);
 }
 ```
@@ -743,8 +689,8 @@ public class OAuth2LoginAuthenticationProvider implements AuthenticationProvider
 
 #### Conclusion of the filters
 
-1. `OAuth2AuthorizationRequestResolver` resolves the (`HttpServletRequest`) request from client，
-   > If the request is not `null`, it returns an instance of `OAuth2AuthorizationRequest` including `client_id`, `state`, `redirect_uri` ...
+1. `OAuth2AuthorizationRequestResolver` resolves the (`HttpServletRequest`) request from client.   
+If the httpServletRequest `!= null`, it returns an instance of `OAuth2AuthorizationRequest` including `client_id`, `state`, `redirect_uri` ...
 
 2. Store the valid `OAuth2AuthorizationRequest` via `authorizationRequestRepository.saveAuthorizationRequest` to the client's(spring application) session 
    > Authorization Server can look up authorization request's attribute `state` in the httpSession to compare with `state` from client's request to prevent the csrf attack
