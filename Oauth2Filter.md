@@ -7,8 +7,8 @@ There are two important filters for OAuth2 Flow
 
 ## `OAuth2AuthorizationRequestRedirectFilter` 
 
-When Client ask for Authorization grant(user login via 3rd party application account in the client), then `OAuth2AuthorizationRequestRedirectFilter` will _resolve/parse_ this request
-- The request contains `client_id`、`scope` and `state` to form a `redirect_url` and redirect to third party authorized's url for asking the grant from resource  owner 
+When Client asks for Authorization grant via `httpSerletReq` , then `OAuth2AuthorizationRequestRedirectFilter` will _resolve/parse_ the request
+- The request contains `client_id`、`scope` and `state` to form a callback `redirect_url` and redirect to third party authorized's url for asking the grant from resource owner 
  
 The `OAuth2AuthorizationRequestRedirectFilter` uses an `OAuth2AuthorizationRequestResolver` to **RESOLVE** `HttpServletRequest` an `OAuth2AuthorizationRequest`    
 
@@ -16,6 +16,7 @@ The `OAuth2AuthorizationRequestRedirectFilter` uses an `OAuth2AuthorizationReque
 
 ```java
 public class OAuth2AuthorizationRequestRedirectFilter extends OncePerRequestFilter {
+  
   //...
 
   @Override
@@ -23,27 +24,24 @@ public class OAuth2AuthorizationRequestRedirectFilter extends OncePerRequestFilt
                                   HttpServletResponse response, 
                                   FilterChain filterChain) throws ServletException, IOException {
     try {
-      //  Resolve an Oauth2AuthorizationRequest from httpServletRequest
-      OAuth2AuthorizationRequest authorizationRequest = this.authorizationRequestResolver.resolve(request);
-      
-      if (authorizationRequest != null) {
-        // Initiate Redirect URL
-        this.sendRedirectForAuthorization(request, response, authorizationRequest);
-        
-        return;
-      }
-    } catch (Exception failed) {
-      
-      this.unsuccessfulRedirectForAuthorization(request, response, failed);
-      
-      return;
+		//  Resolve an Oauth2AuthorizationRequest from httpServletRequest
+		OAuth2AuthorizationRequest authorizationRequest = this.authorizationRequestResolver.resolve(request);
+		
+		if (authorizationRequest != null) {
+			// Initiate Redirect URL
+			this.sendRedirectForAuthorization(request, response, authorizationRequest);
+			
+			return;
+      	}
+	} catch (Exception failed) {
+		this.unsuccessfulRedirectForAuthorization(request, response, failed);
+		return;
     }
     
     //...
   }
 }   
 ```
-#### Resolver
 
 ```java
 DefaultOAuth2AuthorizationRequestResolver
@@ -62,23 +60,19 @@ DefaultOAuth2AuthorizationRequestResolver
   *         from the provided HttpServletRequest 
   *         or null if not available.
   */
-OAuth2AuthorizationRequest resolve(javax.servlet.http.HttpServletRequest request)	
+OAuth2AuthorizationRequest resolve(
+	javax.servlet.http.HttpServletRequest request)	
+OAuth2AuthorizationRequest resolve(
+	javax.servlet.http.HttpServletRequest request, java.lang.String registrationId)	
 
-OAuth2AuthorizationRequest resolve(javax.servlet.http.HttpServletRequest request, java.lang.String registrationId)	
-
-/**
-  * Sets the Consumer to be provided the 
-  * {@code OAuth2AuthorizationRequest.Builder} 
-  * allowing for further customizations.
-  */
-void setAuthorizationRequestCustomizer(java.util.function.Consumer<OAuth2AuthorizationRequest.Builder> authorizationRequestCustomizer)	
-
-private OAuth2AuthorizationRequest resolve(HttpServletRequest request, String registrationId, String redirectUriAction) {
-	
+private OAuth2AuthorizationRequest resolve(HttpServletRequest request, 
+										   String registrationId, 
+										   String redirectUriAction) 
+{
 	if (registrationId == null) {
 		return null;
 	}
- 
+	
 	ClientRegistration clientRegistration = this.clientRegistrationRepository.findByRegistrationId(registrationId);
 
 	if (clientRegistration == null) {
@@ -100,7 +94,7 @@ private OAuth2AuthorizationRequest resolve(HttpServletRequest request, String re
 
 	/****
 	  * Expand RedirectUri 
-	  * (Attributes in HttpServletRequest + Client Registration)
+	  * (e.g. Attributes in HttpServletRequest + Client Registration)
 	  */
 	String redirectUriStr = expandRedirectUri(request, clientRegistration, redirectUriAction);
 
@@ -117,6 +111,7 @@ private OAuth2AuthorizationRequest resolve(HttpServletRequest request, String re
 	
 	// Accept the Customized authorization request 
 	this.authorizationRequestCustomizer.accept(builder);
+	
 	return builder.build();
 }
 ```
@@ -320,7 +315,7 @@ public class HttpUtils {
 ```
 
 ### `OAuth2AuthorizationRequest#getGrantType()`
-- [FORWARD and REDIRECT](https://stackoverflow.com/questions/20371220/what-is-the-difference-between-response-sendredirect-and-request-getrequestdis)  
+- [forward and sendRedirect](https://stackoverflow.com/questions/20371220/what-is-the-difference-between-response-sendredirect-and-request-getrequestdis)  
 
 ```java
 /**
@@ -339,92 +334,65 @@ private void sendRedirectForAuthorization(HttpServletRequest request,
     // check the Authorization Grant Type
     if (AuthorizationGrantType.AUTHORIZATION_CODE.equals(authorizationRequest.getGrantType())) {
     	
-	// save the request payloads (state, url ,... etc ) in http session
+		// save the request payloads (state, url ,... etc ) in http session
         this.authorizationRequestRepository.saveAuthorizationRequest(authorizationRequest, request, response);
     }
     
     /**
-     * <p> {@code authorizationRedirectStrategy} is {@code DefaultRedirectStrategy} </p>
-     * {@code authorizationRequest.getAuthorizationRequestUri()}
-     *     third party application login page 
-     *	   (Wart daruaf, Der Nutzer gibt password/e-mail ein) </p>
+     * {@code authorizationRedirectStrategy} is {@code DefaultRedirectStrategy} type
      */
     this.authorizationRedirectStrategy.sendRedirect(request, response, authorizationRequest.getAuthorizationRequestUri());
 }
 
+// DefaultRedirectStrategy#sendRedirect
+// response url = request#getContextPath + authorizationRequest#getAuthorizationRequestUri
 public void sendRedirect(HttpServletRequest request, 
                          HttpServletResponse response,
                          String url) throws IOException {
 
     String redirectUrl = calculateRedirectUrl(request.getContextPath(), url);
+
     redirectUrl = response.encodeRedirectURL(redirectUrl);
     
     if (logger.isDebugEnabled()) {
         logger.debug("Redirecting to '" + redirectUrl + "'");
     }
- 
-    response.sendRedirect(redirectUrl);
+    
+	response.sendRedirect(redirectUrl);
 }
 ```
 
-## [`OAuth2LoginAuthenticationFilter`](https://zhuanlan.zhihu.com/p/100625981) handles for
+## OAuth2LoginAuthenticationFilter
 
-1. If the user grants the client to fetch his/her resource from 3rd party application,then this filter will add Authorized Grant Code, state ...etc in the `redirect_url`  
+- [`OAuth2LoginAuthenticationFilter`](https://zhuanlan.zhihu.com/p/100625981) 
 
-2. Parse the `redirect_url`, `Authorized Grant Code` and `state` with the ones stored in the client's session (client here is our spring application)
-  > If they are valid then the filter returns `access_token` url 
-
-3. Client uses access token and calls (its spring api) `Oauth2UserService` to get third party protected resource for returning instance of `Authenttication` 
-
-4. `SecurityContextPersistenceFilter` will store protected resource in the local http session  (local endpoint) after that 
-
+If they are valid then the filter returns `access_token` url 
+- Client uses access token and calls (its spring api) `Oauth2UserService` to get third party protected resource for returning instance of `Authenttication` 
+- `SecurityContextPersistenceFilter` will store protected resource in the local http session  (local endpoint) after that 
 
 ![image](https://user-images.githubusercontent.com/68631186/122872974-cd07de00-d363-11eb-88a4-67edc7b91d04.png)   
 
+- An implementation of an {@link AbstractAuthenticationProcessingFilter} for OAuth 2.0 Login.
+
+After that it generates a Authenticated `OAuth2LoginAuthenticationToken` to associated `Oauth2AuthorizedClient` and
+save it in the {@code SecurityContextRepository} and {@code OAuth2AuthorizedClientRepository}
+and delegates it to the  {@code AuthenticationManager} to make a authentication by creating a valid {@code OAuth2LoginAuthenticationToken} 
+
+The OAuth 2.0 Authorization Response is processed as follows:
+
+1. Checking The Grant Code and State from Client  
+IF the End-User (Resource Owner) has granted access to the Client, the Authorization Server will append the  `OAuth2ParameterNames#CODE` and `OAuth2ParameterNames#STATE` attributes to the `OAuth2ParameterNames#REDIRECT_URI` (the one provided in the `auth2AuthorizedRequest`) and redirect the End-User's user-agent back to `OAuth2LoginAuthenticationFilter`
+
+2. Generate the Token to client   
+This filter will then create an `OAuth2LoginAuthenticationToken` with the `OAuth2ParameterNames#CODE` and delegate it to `AuthenticationManager` for authenticating
+
+1. Save A Authorized Client in third party application   
+Upon a successful authentication, an `OAuth2AuthenticationToken` is created (representing the End-User `Principal`)
+
+1. Save (3rd party Application) the user principal in the client session    
+Finally, the `OAuth2AuthenticationToken` is returned and ultimately stored in `SecurityContextRepository` to complete the authentication processing.
+
 ```java
-/**
- * <p> An implementation of an {@link AbstractAuthenticationProcessingFilter} for OAuth 2.0 Login. </p>
- * <p> This authentication {@code Filter} handles 
- *     the process of an OAuth 2.0 Authorization Response 
- *     (by intercepting authorization grant code returned by Authorization Server)
- *     for the authorization code grant flow and delegates an
- *     {@link OAuth2LoginAuthenticationToken} to the {@link AuthenticationManager} 
- *     to log in the End-User. </p>
- * <p> After that it generates a Authentication {@code OAuth2LoginAuthenticationToken} 
- *     to associated {@code Oauth2AuthorizedClient} and
- *     save it in the {@code SecurityContextRepository} and {@code OAuth2AuthorizedClientRepository}
- *     and delegates it to the  {@code AuthenticationManager} to make a authentication
- *     by creating a valid {@code OAuth2LoginAuthenticationToken} </p>
- *<p> The OAuth 2.0 Authorization Response is processed as follows: <p>
- */
- 
- /**********************Checking The Grant Code and State from Client***************************
- *<p> Assuming the End-User (Resource Owner) has granted access to the Client, </p>
- *<p> the Authorization Server will append the 
- *    {@code OAuth2ParameterNames#CODE} and {@code OAuth2ParameterNames#STATE} 
- *    parameters to the {@code OAuth2ParameterNames#REDIRECT_URI} 
- *    (provided in the {@code Oauth2AuthorizedRequest})
- *    and redirect the End-User's user-agent back to this {@code Filter} </p>
- */
- 
- /***********************Generate the Token to client**************************************
- * <p> This {@code Filter} will then create an {@code OAuth2LoginAuthenticationToken} with
- * 	the {@code OAuth2ParameterNames#CODE} received 
- * 	and delegate it to the {@code AuthenticationManager} to authenticate. </p>
- *
- /***********************Save A Authorized Client in third party application**********************************
- * <p> Upon a successful authentication, an {@code OAuth2AuthenticationToken} is created
- * 	(representing the End-User {@code Principal}) and associated to the
- * 	{@link OAuth2AuthorizedClient Authorized Client} using the
- * 	{@link OAuth2AuthorizedClientRepository}. </p>
- */
- 
- /***********************Save the user principal in the client session********
- * <p> Finally, the {@link OAuth2AuthenticationToken} is returned and ultimately stored in
- * 	    the {@link SecurityContextRepository} to complete the authentication processing.
- * </p>
- */
- 
 public class OAuth2LoginAuthenticationFilter extends AbstractAuthenticationProcessingFilter {
 
 	// Default_url, and Static final String attributes ....
@@ -438,11 +406,12 @@ public class OAuth2LoginAuthenticationFilter extends AbstractAuthenticationProce
 	
 	// Execute the Authentication for what the user gave from the client 
 	// (password, email, state , scope ... etc  )
-        @Override
+    @Override
 	public Authentication attemptAuthentication(HttpServletRequest request, HttpServletResponse response)
 			throws AuthenticationException {
 			
 		MultiValueMap<String, String> params = OAuth2AuthorizationResponseUtils.toMultiMap(request.getParameterMap());
+		
 		// check state and grant code 
 		if (!OAuth2AuthorizationResponseUtils.isAuthorizationResponse(params)) {
 			OAuth2Error oauth2Error = new OAuth2Error(OAuth2ErrorCodes.INVALID_REQUEST);
@@ -450,11 +419,10 @@ public class OAuth2LoginAuthenticationFilter extends AbstractAuthenticationProce
 		}
 		
 		/**
-		 * Intercept the {@code Oauth2AuthorizationRequest} from Authorization Server 
-		 * associated in the session
+		 * Intercept the {@code Oauth2AuthorizationRequest} from Authorization Server
 		 */
-		OAuth2AuthorizationRequest authorizationRequest = this.authorizationRequestRepository
-				.removeAuthorizationRequest(request, response);
+		OAuth2AuthorizationRequest authorizationRequest = 
+						this.authorizationRequestRepository.removeAuthorizationRequest(request, response);
 		if (authorizationRequest == null) {
 			OAuth2Error oauth2Error = new OAuth2Error(AUTHORIZATION_REQUEST_NOT_FOUND_ERROR_CODE);
 			throw new OAuth2AuthenticationException(oauth2Error, oauth2Error.toString());
@@ -478,13 +446,15 @@ public class OAuth2LoginAuthenticationFilter extends AbstractAuthenticationProce
 		 *  By converting {@code HttpServletRequest} to Url
 		 *  via {@code UriComponentsBuilder} to get each attribute
 		 */
-		String redirectUri = UriComponentsBuilder.fromHttpUrl(UrlUtils.buildFullRequestUrl(request))
-				.replaceQuery(null)
-				.build()
-				.toUriString();
+		String redirectUri = UriComponentsBuilder
+								.fromHttpUrl(
+									UrlUtils.buildFullRequestUrl(request))
+								.replaceQuery(null)
+								.build()
+								.toUriString();
 				
 		/**
-		  * Create Response
+		  * Create authorization Response
 		  */
 		OAuth2AuthorizationResponse authorizationResponse = OAuth2AuthorizationResponseUtils.convert(params,redirectUri);
 		
@@ -509,8 +479,10 @@ public class OAuth2LoginAuthenticationFilter extends AbstractAuthenticationProce
 		
 		// 把Toke存入Authorization Server對應的Client中
 		OAuth2AuthorizedClient authorizedClient = new OAuth2AuthorizedClient(
-				authenticationResult.getClientRegistration(), oauth2Authentication.getName(),
-				authenticationResult.getAccessToken(), authenticationResult.getRefreshToken());
+				authenticationResult.getClientRegistration(), 
+				oauth2Authentication.getName(),
+				authenticationResult.getAccessToken(), 
+				authenticationResult.getRefreshToken());
 		this.authorizedClientRepository.saveAuthorizedClient(authorizedClient, oauth2Authentication, request, response);
 		
 		return oauth2Authentication;
@@ -518,15 +490,14 @@ public class OAuth2LoginAuthenticationFilter extends AbstractAuthenticationProce
 }
 ```
 
+#### removeAuthorizationRequest
 
-## Intercept The `OAuth2AuthorizationRequest`
-
-```java
+```java 
 @Override
 public OAuth2AuthorizationRequest removeAuthorizationRequest(HttpServletRequest request) {
+
 	Assert.notNull(request, "request cannot be null");
-	
-	// getState from the request
+
 	String stateParameter = this.getStateParameter(request);
 	if (stateParameter == null) {
 		return null;
@@ -535,42 +506,38 @@ public OAuth2AuthorizationRequest removeAuthorizationRequest(HttpServletRequest 
 	// Map<"state", state_code> 
 	Map<String, OAuth2AuthorizationRequest> authorizationRequests = this.getAuthorizationRequests(request);
 	
-	// compare with `state`
+	// get Oauth2AuthorizationRequest ("state" attribute)
 	OAuth2AuthorizationRequest originalRequest = authorizationRequests.remove(stateParameter);
 	
 	if (authorizationRequests.size() == 0) {
-	// remove state in this the session
+		// remove state in this the session
 		request.getSession().removeAttribute(this.sessionAttributeName);
 	}
 	else if (authorizationRequests.size() == 1) {
-	// add state
+		// add state
 		request.getSession().setAttribute(this.sessionAttributeName,
-				authorizationRequests.values().iterator().next());
+										  authorizationRequests.values().iterator().next());
 	}
 	else {
-	// add state
+		// add state
 		request.getSession().setAttribute(this.sessionAttributeName, authorizationRequests);
 	}
 	return originalRequest;
 }
 
-/**
- * Get Map<"state" , OAuth2AuthorizationRequest state_code> instance from the `OAuth2AuthorizationRequest` or `Map` 
- * From session via HttpServletRequest and return this Map instance
- */
+
 private Map<String, OAuth2AuthorizationRequest> getAuthorizationRequests(HttpServletRequest request) {
 
 		// Return a session only if there is one associated with the request (if not then don't create new session automatically)
 		HttpSession session = request.getSession(false);
 		
-		// Get session attribute's value coulde be an instance of OAuth2AuthorizationRequest or Map 
 		Object sessionAttributeValue = (session != null) ? session.getAttribute(this.sessionAttributeName) : null;
 		if (sessionAttributeValue == null) {
 			return new HashMap<>();
 		}
 		
 		else if (sessionAttributeValue instanceof OAuth2AuthorizationRequest) {
-		// get Oauth2AuthorizationRequest's attribute `state`
+			// get Oauth2AuthorizationRequest's attribute `state`
 			OAuth2AuthorizationRequest auth2AuthorizationRequest = (OAuth2AuthorizationRequest) sessionAttributeValue;
 			
 			Map<String, OAuth2AuthorizationRequest> authorizationRequests = new HashMap<>(1);
@@ -598,12 +565,15 @@ final class OAuth2AuthorizationResponseUtils {
 
 	// other methods ...
 	
-	// get attribute (grant code, state, Error ... ) from @Parameter request
+	// get attributes (grant code, state, Error ... ) from MultiValueMap<String, String> reques
 	static OAuth2AuthorizationResponse convert(MultiValueMap<String, String> request, String redirectUri) {
+			
 			String code = request.getFirst(OAuth2ParameterNames.CODE);
 			String errorCode = request.getFirst(OAuth2ParameterNames.ERROR);
 			String state = request.getFirst(OAuth2ParameterNames.STATE);
 			
+
+			// request has the grant code
 			if (StringUtils.hasText(code)) {
 				// Success 
 				return OAuth2AuthorizationResponse.success(code).redirectUri(redirectUri).state(state).build();
@@ -636,25 +606,29 @@ public class OAuth2LoginAuthenticationProvider implements AuthenticationProvider
 	    OAuth2LoginAuthenticationToken authorizationCodeAuthentication = (OAuth2LoginAuthenticationToken) authentication;
 
 	    if (authorizationCodeAuthentication.getAuthorizationExchange()
-	      .getAuthorizationRequest().getScopes().contains("openid")) {
+	      								   .getAuthorizationRequest()
+										   .getScopes()
+										   .contains("openid")) {
 
 
 	      return null;
 	    }
 
 	    OAuth2AccessTokenResponse accessTokenResponse;
-	    try {
-	      OAuth2AuthorizationExchangeValidator.validate(
-		  authorizationCodeAuthentication.getAuthorizationExchange());
 
-	      accessTokenResponse = this.accessTokenResponseClient.getTokenResponse(
-		  new OAuth2AuthorizationCodeGrantRequest(
-		      authorizationCodeAuthentication.getClientRegistration(),
-		      authorizationCodeAuthentication.getAuthorizationExchange()));
+	    try {
+			OAuth2AuthorizationExchangeValidator.validate(
+		    authorizationCodeAuthentication.getAuthorizationExchange())
+			
+			
+			accessTokenResponse = this.accessTokenResponseClient.getTokenResponse(
+				new OAuth2AuthorizationCodeGrantRequest(
+					authorizationCodeAuthentication.getClientRegistration(),
+					authorizationCodeAuthentication.getAuthorizationExchange()));
 
 	    } catch (OAuth2AuthorizationException ex) {
-	      OAuth2Error oauth2Error = ex.getError();
-	      throw new OAuth2AuthenticationException(oauth2Error, oauth2Error.toString());
+			OAuth2Error oauth2Error = ex.getError();
+			throw new OAuth2AuthenticationException(oauth2Error, oauth2Error.toString());
 	    }
 
 
